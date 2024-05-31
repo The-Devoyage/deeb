@@ -2,7 +2,7 @@ use anyhow::Error;
 use entity::Entity;
 use name::Name;
 use std::collections::HashMap;
-use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use serde_json::Value;
 
@@ -105,9 +105,9 @@ impl Database {
             .instances
             .get(&name)
             .ok_or_else(|| Error::msg("Instance not found"))?;
-        let file = std::fs::File::create(&instance.file_path)?;
-        let writer = std::io::BufWriter::new(file);
-        serde_json::to_writer(writer, &instance.data)?;
+        let mut file = tokio::fs::File::create(&instance.file_path).await?;
+        file.write_all(serde_json::to_string(&instance.data)?.as_bytes())
+            .await?;
         Ok(self)
     }
 }
