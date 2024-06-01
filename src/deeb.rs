@@ -1,10 +1,12 @@
 use anyhow::Error;
+use log::*;
 use serde_json::Value;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::database::{
-    entity::Entity, name::Name, query::Query, transaction::Transaction, Database, Operation,
+    entity::Entity, name::Name, query::Query, transaction::Transaction, Database, ExecutedValue,
+    Operation,
 };
 
 pub struct Deeb {
@@ -13,6 +15,7 @@ pub struct Deeb {
 
 impl Deeb {
     pub fn new() -> Self {
+        debug!("Creating new Deeb instance");
         let database = Database::new();
         Self {
             db: Arc::new(RwLock::new(database)),
@@ -25,6 +28,7 @@ impl Deeb {
         file_path: &str,
         entities: Vec<Entity>,
     ) -> Result<&Self, Error> {
+        debug!("Adding instance");
         let name = Name::from(name);
         let mut db = self.db.write().await;
         db.add_instance(name, file_path, entities);
@@ -39,6 +43,7 @@ impl Deeb {
         value: Value,
         transaction: Option<&mut Transaction>,
     ) -> Result<Value, Error> {
+        debug!("Inserting");
         if let Some(transaction) = transaction {
             let operation = Operation::Insert {
                 entity: entity.clone(),
@@ -62,6 +67,7 @@ impl Deeb {
         query: Query,
         transaction: Option<&mut Transaction>,
     ) -> Result<Value, Error> {
+        debug!("Finding one");
         if let Some(transaction) = transaction {
             let operation = Operation::FindOne {
                 entity: entity.clone(),
@@ -73,6 +79,7 @@ impl Deeb {
 
         let db = self.db.read().await;
         let value = db.find_one(entity, query).await?;
+        trace!("Found value: {:?}", value);
         Ok(value)
     }
 
@@ -83,6 +90,7 @@ impl Deeb {
         query: Query,
         transaction: Option<&mut Transaction>,
     ) -> Result<Vec<Value>, Error> {
+        debug!("Finding many");
         if let Some(transaction) = transaction {
             let operation = Operation::FindOne {
                 entity: entity.clone(),
@@ -94,6 +102,7 @@ impl Deeb {
 
         let db = self.db.read().await;
         let values = db.find_many(entity, query).await?;
+        trace!("Found values: {:?}", values);
         Ok(values)
     }
 
@@ -104,6 +113,7 @@ impl Deeb {
         query: Query,
         transaction: Option<&mut Transaction>,
     ) -> Result<Value, Error> {
+        debug!("Deleting one");
         if let Some(transaction) = transaction {
             let operation = Operation::DeleteOne {
                 entity: entity.clone(),
@@ -117,6 +127,7 @@ impl Deeb {
         let value = db.delete_one(entity, query).await?;
         let name = db.get_instance_name_by_entity(entity)?;
         db.commit(vec![name]).await?;
+        trace!("Deleted value: {:?}", value);
         Ok(value)
     }
 
@@ -127,6 +138,7 @@ impl Deeb {
         query: Query,
         transaction: Option<&mut Transaction>,
     ) -> Result<Vec<Value>, Error> {
+        debug!("Deleting many");
         if let Some(transaction) = transaction {
             let operation = Operation::DeleteMany {
                 entity: entity.clone(),
@@ -140,54 +152,116 @@ impl Deeb {
         let values = db.delete_many(entity, query).await?;
         let name = db.get_instance_name_by_entity(entity)?;
         db.commit(vec![name]).await?;
+        trace!("Deleted values: {:?}", values);
         Ok(values)
     }
 
     // Handle Transaction
     #[allow(dead_code)]
     pub async fn begin_transaction(&self) -> Transaction {
+        debug!("Beginning transaction");
         Transaction::new()
     }
 
     #[allow(dead_code)]
     pub async fn commit(&self, transaction: &mut Transaction) -> Result<(), Error> {
+        debug!("Committing transaction");
         let mut db = self.db.write().await;
-        let mut names = vec![];
+        let mut executed = vec![];
         for operation in transaction.operations.iter() {
-            match operation {
-                Operation::Insert { entity, value } => {
-                    println!("Inserting: {:?}", value);
-                    db.insert(&entity, value.clone()).await?;
-                    let name = db.get_instance_name_by_entity(&entity)?;
-                    names.push(name.clone());
-                }
-                Operation::FindOne { entity, query } => {
-                    println!("Finding: {:?}", query);
-                    db.find_one(&entity, query.clone()).await?;
-                    let name = db.get_instance_name_by_entity(&entity)?;
-                    names.push(name);
-                }
-                Operation::FindMany { entity, query } => {
-                    println!("Finding: {:?}", query);
-                    db.find_many(&entity, query.clone()).await?;
-                    let name = db.get_instance_name_by_entity(&entity)?;
-                    names.push(name);
-                }
-                Operation::DeleteOne { entity, query } => {
-                    println!("Deleting: {:?}", query);
-                    db.delete_one(&entity, query.clone()).await?;
-                    let name = db.get_instance_name_by_entity(&entity)?;
-                    names.push(name);
-                }
-                Operation::DeleteMany { entity, query } => {
-                    println!("Deleting: {:?}", query);
-                    db.delete_many(&entity, query.clone()).await?;
-                    let name = db.get_instance_name_by_entity(&entity)?;
-                    names.push(name);
+            let result = match operation {
+                Operation::Insert { entity, value } => db
+                    .insert(&entity, value.clone())
+                    .await
+                    .map(|value| (operation.clone(), ExecutedValue::Inserted(value))),
+                Operation::FindOne { entity, query } => db
+                    .find_one(&entity, query.clone())
+                    .await
+                    .map(|_value| (operation.clone(), ExecutedValue::FoundOne)),
+                Operation::FindMany { entity, query } => db
+                    .find_many(&entity, query.clone())
+                    .await
+                    .map(|_values| (operation.clone(), ExecutedValue::FoundMany)),
+                Operation::DeleteOne { entity, query } => db
+                    .delete_one(&entity, query.clone())
+                    .await
+                    .map(|value| (operation.clone(), ExecutedValue::DeletedOne(value))),
+                Operation::DeleteMany { entity, query } => db
+                    .delete_many(&entity, query.clone())
+                    .await
+                    .map(|values| (operation.clone(), ExecutedValue::DeletedMany(values))),
+            };
+            trace!("Executed operation: {:?}", operation);
+
+            match result {
+                Ok(executed_value) => executed.push(executed_value),
+                Err(err) => {
+                    trace!("Error occurred: {:?}", err);
+                    drop(db);
+                    self.rollback(&mut executed).await?;
+                    return Err(err);
                 }
             }
         }
+
+        let mut names = vec![];
+        for (operation, _executed_value) in executed.iter() {
+            trace!("Getting names");
+            let entity = match operation {
+                Operation::Insert { entity, .. } => entity,
+                Operation::DeleteOne { entity, .. } => entity,
+                Operation::DeleteMany { entity, .. } => entity,
+                _ => continue,
+            };
+            let name = db.get_instance_name_by_entity(entity).unwrap();
+            names.push(name);
+        }
+        trace!("Names: {:?}", names);
+
         db.commit(names).await?;
+        trace!("Executed operations: {:?}", executed);
+        Ok(())
+    }
+
+    async fn rollback(&self, executed: &mut Vec<(Operation, ExecutedValue)>) -> Result<(), Error> {
+        debug!("Rolling back transaction");
+        let mut db = self.db.write().await;
+        for (operation, executed_value) in executed.iter().rev() {
+            match operation {
+                Operation::Insert { entity, .. } => match executed_value {
+                    ExecutedValue::Inserted(value) => {
+                        let query = Query::and(
+                            value
+                                .as_object()
+                                .unwrap()
+                                .iter()
+                                .map(|(key, value)| {
+                                    Query::Eq(key.clone().as_str().into(), value.clone())
+                                })
+                                .collect::<Vec<_>>(),
+                        );
+                        db.delete_one(&entity, query).await?;
+                    }
+                    _ => {}
+                },
+                Operation::DeleteOne { entity, .. } => match executed_value {
+                    ExecutedValue::DeletedOne(value) => {
+                        db.insert(&entity, value.clone()).await.unwrap();
+                    }
+                    _ => {}
+                },
+                Operation::DeleteMany { entity, .. } => match executed_value {
+                    ExecutedValue::DeletedMany(values) => {
+                        for value in values.iter() {
+                            db.insert(&entity, value.clone()).await.unwrap();
+                        }
+                    }
+                    _ => {}
+                },
+                _ => {}
+            }
+        }
+        trace!("Rolled back operations");
         Ok(())
     }
 }

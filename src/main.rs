@@ -12,6 +12,7 @@ mod deeb;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // let cli = Cli::parse();
+    env_logger::init();
 
     let test = Entity::from("test");
 
@@ -32,13 +33,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // db.insert(
     //     &test,
-    //     json!({"test": "test", "name": "nick", "age": 35}),
-    //     None,
-    // )
-    // .await?;
-
-    // db.insert(
-    //     &test,
     //     json!({"test": "test2", "name": "laura", "age": 35}),
     //     None,
     // )
@@ -51,20 +45,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // )
     // .await?;
 
-    // db.insert(
-    //     &test,
-    //     json!({"test": "test2", "name": "Oaks", "age": 30}),
-    //     None,
-    // )
-    // .await?;
-
-    // db.insert(
-    //     &test,
-    //     json!({"test": "test2", "name": "Ollie", "age": 3}),
-    //     None,
-    // )
-    // .await?;
-
     let query = Query::or(vec![
         Query::Eq("name".into(), "nick".into()),
         Query::Lt("age".into(), 35.into()),
@@ -72,8 +52,39 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let result = db.find_many(&test, query.clone(), None).await?;
     println!("{:?}", result);
 
-    let res = db.delete_many(&test, query, None).await?;
+    let mut transaction = db.begin_transaction().await;
+
+    db.insert(
+        &test,
+        json!({"test": "test2", "name": "Oaks", "age": 300}),
+        Some(&mut transaction),
+    )
+    .await?;
+
+    db.insert(
+        &test,
+        json!({"test": "test2", "name": "Ollie", "age": 3}),
+        Some(&mut transaction),
+    )
+    .await?;
+
+    db.insert(
+        &test,
+        json!({"test": "test", "name": "nick", "age": 35}),
+        Some(&mut transaction),
+    )
+    .await?;
+
+    db.delete_many(&test, query.clone(), Some(&mut transaction))
+        .await?;
+
+    let query = Query::Gt("age".into(), 20.into());
+    let res = db.find_many(&test, query, Some(&mut transaction)).await?;
     println!("{:?}", res);
+
+    db.commit(&mut transaction).await?;
+
+    // println!("{:?}", res);
 
     Ok(())
 }

@@ -21,6 +21,16 @@ pub struct DatabaseInstance {
     data: HashMap<Entity, Vec<Value>>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum ExecutedValue {
+    Inserted(Value),
+    FoundOne,
+    FoundMany,
+    DeletedOne(Value),
+    DeletedMany(Vec<Value>),
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Operation {
     Insert { entity: Entity, value: Value },
     FindOne { entity: Entity, query: Query },
