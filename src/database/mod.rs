@@ -1,6 +1,7 @@
 use anyhow::Error;
 use entity::Entity;
 use name::Name;
+use query::Query;
 use std::collections::HashMap;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -8,6 +9,7 @@ use serde_json::Value;
 
 pub mod entity;
 pub mod name;
+pub mod query;
 pub mod transaction;
 
 /// A database instance. Tpically, a database instance is a JSON file on disk.
@@ -21,7 +23,7 @@ pub struct DatabaseInstance {
 
 pub enum Operation {
     Insert { entity: Entity, value: Value },
-    FindOne { entity: Entity, query: Value },
+    FindOne { entity: Entity, query: Query },
 }
 
 /// A database that stores multiple instances of data.
@@ -102,7 +104,7 @@ impl Database {
         Ok(insert_value)
     }
 
-    pub async fn find_one(&self, entity: &Entity, query: Value) -> Result<Value, Error> {
+    pub async fn find_one(&self, entity: &Entity, query: Query) -> Result<Value, Error> {
         let instance = self
             .get_instance_by_entity(entity)
             .ok_or_else(|| Error::msg("Entity not found"))?;
@@ -110,20 +112,26 @@ impl Database {
             .data
             .get(entity)
             .ok_or_else(|| Error::msg("Data not found"))?;
-        let result = data.iter().find(|_value| {
-            // Find the value that matches the query
-            query
-                .as_object()
-                .map(|query| {
-                    query
-                        .iter()
-                        .all(|(key, value)| value == value.get(key).unwrap())
-                })
-                .unwrap_or(false)
-        });
+        let result = data
+            .iter()
+            .find(|value| query.matches(value).unwrap_or(false));
         result
             .map(|value| value.clone())
             .ok_or_else(|| Error::msg("Value not found"))
+    }
+
+    pub async fn find_many(&self, entity: &Entity, query: Query) -> Result<Vec<Value>, Error> {
+        let instance = self
+            .get_instance_by_entity(entity)
+            .ok_or_else(|| Error::msg("Entity not found"))?;
+        let data = instance
+            .data
+            .get(entity)
+            .ok_or_else(|| Error::msg("Data not found"))?;
+        let result = data
+            .iter()
+            .filter(|value| query.matches(value).unwrap_or(false));
+        Ok(result.cloned().collect())
     }
 
     pub async fn commit(&self, name: Vec<Name>) -> Result<(), Error> {

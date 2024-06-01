@@ -1,6 +1,7 @@
 // use clap::Parser;
 // use cli::Cli;
 use crate::database::entity::Entity;
+use database::query::Query;
 use deeb::Deeb;
 use serde_json::json;
 
@@ -29,9 +30,47 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //     .await?;
     // db.commit(&mut transaction).await?;
 
-    db.insert(&test, json!({"test": "test"}), None).await?;
-    db.insert(&test, json!({"test": "test2"}), None).await?;
-    db.find_one(&test, json!({}), None).await?;
+    // db.insert(
+    //     &test,
+    //     json!({"test": "test", "name": "nick", "age": 35}),
+    //     None,
+    // )
+    // .await?;
+
+    // db.insert(
+    //     &test,
+    //     json!({"test": "test2", "name": "laura", "age": 35}),
+    //     None,
+    // )
+    // .await?;
+
+    // db.insert(
+    //     &test,
+    //     json!({"test": "test2", "name": "bongo", "age": 75}),
+    //     None,
+    // )
+    // .await?;
+
+    // db.insert(
+    //     &test,
+    //     json!({"test": "test2", "name": "Oaks", "age": 30}),
+    //     None,
+    // )
+    // .await?;
+
+    // db.insert(
+    //     &test,
+    //     json!({"test": "test2", "name": "Ollie", "age": 3}),
+    //     None,
+    // )
+    // .await?;
+
+    let query = Query::or(vec![
+        Query::Eq("name".into(), "nick".into()),
+        Query::Lt("age".into(), 35.into()),
+    ]);
+    let result = db.find_many(&test, query, None).await?;
+    println!("{:?}", result);
 
     Ok(())
 }

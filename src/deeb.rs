@@ -3,7 +3,9 @@ use serde_json::Value;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::database::{entity::Entity, name::Name, transaction::Transaction, Database, Operation};
+use crate::database::{
+    entity::Entity, name::Name, query::Query, transaction::Transaction, Database, Operation,
+};
 
 pub struct Deeb {
     db: Arc<RwLock<Database>>,
@@ -57,7 +59,7 @@ impl Deeb {
     pub async fn find_one(
         &self,
         entity: &Entity,
-        query: Value,
+        query: Query,
         transaction: Option<&mut Transaction>,
     ) -> Result<Value, Error> {
         if let Some(transaction) = transaction {
@@ -72,6 +74,27 @@ impl Deeb {
         let db = self.db.read().await;
         let value = db.find_one(entity, query).await?;
         Ok(value)
+    }
+
+    #[allow(dead_code)]
+    pub async fn find_many(
+        &self,
+        entity: &Entity,
+        query: Query,
+        transaction: Option<&mut Transaction>,
+    ) -> Result<Vec<Value>, Error> {
+        if let Some(transaction) = transaction {
+            let operation = Operation::FindOne {
+                entity: entity.clone(),
+                query: query.clone(),
+            };
+            transaction.add_operation(operation);
+            return Ok(vec![]);
+        }
+
+        let db = self.db.read().await;
+        let values = db.find_many(entity, query).await?;
+        Ok(values)
     }
 
     // Handle Transaction
