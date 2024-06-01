@@ -97,6 +97,52 @@ impl Deeb {
         Ok(values)
     }
 
+    #[allow(dead_code)]
+    pub async fn delete_one(
+        &self,
+        entity: &Entity,
+        query: Query,
+        transaction: Option<&mut Transaction>,
+    ) -> Result<Value, Error> {
+        if let Some(transaction) = transaction {
+            let operation = Operation::DeleteOne {
+                entity: entity.clone(),
+                query: query.clone(),
+            };
+            transaction.add_operation(operation);
+            return Ok(Value::Null);
+        }
+
+        let mut db = self.db.write().await;
+        let value = db.delete_one(entity, query).await?;
+        let name = db.get_instance_name_by_entity(entity)?;
+        db.commit(vec![name]).await?;
+        Ok(value)
+    }
+
+    #[allow(dead_code)]
+    pub async fn delete_many(
+        &self,
+        entity: &Entity,
+        query: Query,
+        transaction: Option<&mut Transaction>,
+    ) -> Result<Vec<Value>, Error> {
+        if let Some(transaction) = transaction {
+            let operation = Operation::DeleteMany {
+                entity: entity.clone(),
+                query: query.clone(),
+            };
+            transaction.add_operation(operation);
+            return Ok(vec![]);
+        }
+
+        let mut db = self.db.write().await;
+        let values = db.delete_many(entity, query).await?;
+        let name = db.get_instance_name_by_entity(entity)?;
+        db.commit(vec![name]).await?;
+        Ok(values)
+    }
+
     // Handle Transaction
     #[allow(dead_code)]
     pub async fn begin_transaction(&self) -> Transaction {
@@ -118,6 +164,24 @@ impl Deeb {
                 Operation::FindOne { entity, query } => {
                     println!("Finding: {:?}", query);
                     db.find_one(&entity, query.clone()).await?;
+                    let name = db.get_instance_name_by_entity(&entity)?;
+                    names.push(name);
+                }
+                Operation::FindMany { entity, query } => {
+                    println!("Finding: {:?}", query);
+                    db.find_many(&entity, query.clone()).await?;
+                    let name = db.get_instance_name_by_entity(&entity)?;
+                    names.push(name);
+                }
+                Operation::DeleteOne { entity, query } => {
+                    println!("Deleting: {:?}", query);
+                    db.delete_one(&entity, query.clone()).await?;
+                    let name = db.get_instance_name_by_entity(&entity)?;
+                    names.push(name);
+                }
+                Operation::DeleteMany { entity, query } => {
+                    println!("Deleting: {:?}", query);
+                    db.delete_many(&entity, query.clone()).await?;
                     let name = db.get_instance_name_by_entity(&entity)?;
                     names.push(name);
                 }

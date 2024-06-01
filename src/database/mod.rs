@@ -24,6 +24,9 @@ pub struct DatabaseInstance {
 pub enum Operation {
     Insert { entity: Entity, value: Value },
     FindOne { entity: Entity, query: Query },
+    FindMany { entity: Entity, query: Query },
+    DeleteOne { entity: Entity, query: Query },
+    DeleteMany { entity: Entity, query: Query },
 }
 
 /// A database that stores multiple instances of data.
@@ -132,6 +135,46 @@ impl Database {
             .iter()
             .filter(|value| query.matches(value).unwrap_or(false));
         Ok(result.cloned().collect())
+    }
+
+    pub async fn delete_one(&mut self, entity: &Entity, query: Query) -> Result<Value, Error> {
+        let instance = self
+            .get_instance_by_entity_mut(entity)
+            .ok_or_else(|| Error::msg("Entity not found"))?;
+        let data = instance
+            .data
+            .get_mut(entity)
+            .ok_or_else(|| Error::msg("Data not found"))?;
+        let index = data
+            .iter()
+            .position(|value| query.matches(value).unwrap_or(false))
+            .ok_or_else(|| Error::msg("Value not found"))?;
+        Ok(data.remove(index))
+    }
+
+    pub async fn delete_many(
+        &mut self,
+        entity: &Entity,
+        query: Query,
+    ) -> Result<Vec<Value>, Error> {
+        let instance = self
+            .get_instance_by_entity_mut(entity)
+            .ok_or_else(|| Error::msg("Entity not found"))?;
+        let data = instance
+            .data
+            .get_mut(entity)
+            .ok_or_else(|| Error::msg("Data not found"))?;
+        let indexes = data
+            .iter()
+            .enumerate()
+            .filter(|(_, value)| query.matches(value).unwrap_or(false))
+            .map(|(index, _)| index)
+            .collect::<Vec<_>>();
+        let mut values = vec![];
+        for index in indexes.iter().rev() {
+            values.push(data.remove(*index));
+        }
+        Ok(values)
     }
 
     pub async fn commit(&self, name: Vec<Name>) -> Result<(), Error> {

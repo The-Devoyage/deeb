@@ -69,8 +69,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Query::Eq("name".into(), "nick".into()),
         Query::Lt("age".into(), 35.into()),
     ]);
-    let result = db.find_many(&test, query, None).await?;
+    let result = db.find_many(&test, query.clone(), None).await?;
     println!("{:?}", result);
+
+    let res = db.delete_many(&test, query, None).await?;
+    println!("{:?}", res);
 
     Ok(())
 }
