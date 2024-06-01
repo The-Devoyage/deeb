@@ -3,7 +3,7 @@ use serde_json::Value;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::database::{entity::Entity, name::Name, Database};
+use crate::database::{entity::Entity, name::Name, transaction::Transaction, Database, Operation};
 
 pub struct Deeb {
     db: Arc<RwLock<Database>>,
@@ -19,32 +19,88 @@ impl Deeb {
 
     pub async fn add_instance(
         &self,
-        name: Name,
+        name: &str,
         file_path: &str,
         entities: Vec<Entity>,
     ) -> Result<&Self, Error> {
-        println!("Adding instance");
+        let name = Name::from(name);
         let mut db = self.db.write().await;
         db.add_instance(name, file_path, entities);
-        println!("Loading database");
         db.load().await?;
-        println!("Database loaded");
         Ok(self)
     }
 
     #[allow(dead_code)]
-    pub async fn insert(&self, entity: &Entity, insert: Value) -> Result<Value, Error> {
-        println!("Inserting value");
+    pub async fn insert(
+        &self,
+        entity: &Entity,
+        value: Value,
+        transaction: Option<&mut Transaction>,
+    ) -> Result<Value, Error> {
+        if let Some(transaction) = transaction {
+            let operation = Operation::Insert {
+                entity: entity.clone(),
+                value: value.clone(),
+            };
+            transaction.add_operation(operation);
+            return Ok(value);
+        }
+
         let mut db = self.db.write().await;
-        let value = db.insert(entity, insert).await?;
-        db.commit("test".into()).await?;
+        let value = db.insert(entity, value).await?;
+        let name = db.get_instance_name_by_entity(entity)?;
+        db.commit(vec![name]).await?;
         Ok(value)
     }
 
     #[allow(dead_code)]
-    pub async fn find_one(&self, entity: &Entity, query: Value) -> Result<Value, Error> {
+    pub async fn find_one(
+        &self,
+        entity: &Entity,
+        query: Value,
+        transaction: Option<&mut Transaction>,
+    ) -> Result<Value, Error> {
+        if let Some(transaction) = transaction {
+            let operation = Operation::FindOne {
+                entity: entity.clone(),
+                query: query.clone(),
+            };
+            transaction.add_operation(operation);
+            return Ok(Value::Null);
+        }
+
         let db = self.db.read().await;
         let value = db.find_one(entity, query).await?;
         Ok(value)
+    }
+
+    // Handle Transaction
+    #[allow(dead_code)]
+    pub async fn begin_transaction(&self) -> Transaction {
+        Transaction::new()
+    }
+
+    #[allow(dead_code)]
+    pub async fn commit(&self, transaction: &mut Transaction) -> Result<(), Error> {
+        let mut db = self.db.write().await;
+        let mut names = vec![];
+        for operation in transaction.operations.iter() {
+            match operation {
+                Operation::Insert { entity, value } => {
+                    println!("Inserting: {:?}", value);
+                    db.insert(&entity, value.clone()).await?;
+                    let name = db.get_instance_name_by_entity(&entity)?;
+                    names.push(name.clone());
+                }
+                Operation::FindOne { entity, query } => {
+                    println!("Finding: {:?}", query);
+                    db.find_one(&entity, query.clone()).await?;
+                    let name = db.get_instance_name_by_entity(&entity)?;
+                    names.push(name);
+                }
+            }
+        }
+        db.commit(names).await?;
+        Ok(())
     }
 }
