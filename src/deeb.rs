@@ -14,6 +14,7 @@ pub struct Deeb {
 }
 
 impl Deeb {
+    /// Create a new Deeb instance.
     #[allow(dead_code)]
     pub fn new() -> Self {
         debug!("Creating new Deeb instance");
@@ -23,6 +24,9 @@ impl Deeb {
         }
     }
 
+    /// Add an instance to the database. An instance is a segment of the database. This
+    /// is a JSON file that may have one or more entities. You can add multiple instances
+    /// to the database allowing you to segment your data between different files.
     #[allow(dead_code)]
     pub async fn add_instance(
         &self,
@@ -38,6 +42,9 @@ impl Deeb {
         Ok(self)
     }
 
+    /// Insert a single value into the database.
+    /// Passing a transaction will queue the operation to be executed later and
+    /// requires you to commit the transaction.
     #[allow(dead_code)]
     pub async fn insert(
         &self,
@@ -62,6 +69,9 @@ impl Deeb {
         Ok(value)
     }
 
+    /// Insert multiple values into the database.
+    /// Passing a transaction will queue the operation to be executed later and
+    /// requires you to commit the transaction.
     #[allow(dead_code)]
     pub async fn insert_many(
         &self,
@@ -86,6 +96,9 @@ impl Deeb {
         Ok(values)
     }
 
+    /// Find a single value in the database.
+    /// Passing a transaction will queue the operation to be executed later and
+    /// requires you to commit the transaction.
     #[allow(dead_code)]
     pub async fn find_one(
         &self,
@@ -109,6 +122,9 @@ impl Deeb {
         Ok(value)
     }
 
+    /// Find multiple values in the database.
+    /// Passing a transaction will queue the operation to be executed later and
+    /// requires you to commit the transaction.
     #[allow(dead_code)]
     pub async fn find_many(
         &self,
@@ -132,6 +148,9 @@ impl Deeb {
         Ok(values)
     }
 
+    /// Delete a single value from the database.
+    /// Passing a transaction will queue the operation to be executed later and
+    /// requires you to commit the transaction.
     #[allow(dead_code)]
     pub async fn delete_one(
         &self,
@@ -157,6 +176,9 @@ impl Deeb {
         Ok(value)
     }
 
+    /// Delete multiple values from the database.
+    /// Passing a transaction will queue the operation to be executed later and
+    /// requires you to commit the transaction.
     #[allow(dead_code)]
     pub async fn delete_many(
         &self,
@@ -182,6 +204,9 @@ impl Deeb {
         Ok(values)
     }
 
+    /// Update a single value in the database.
+    /// Passing a transaction will queue the operation to be executed later and
+    /// requires you to commit the transaction.
     #[allow(dead_code)]
     pub async fn update_one(
         &self,
@@ -209,6 +234,9 @@ impl Deeb {
         Ok(value)
     }
 
+    /// Update multiple values in the database.
+    /// Passing a transaction will queue the operation to be executed later and
+    /// requires you to commit the transaction.
     #[allow(dead_code)]
     pub async fn update_many(
         &self,
@@ -237,12 +265,15 @@ impl Deeb {
     }
 
     // Handle Transaction
+    /// Begin a new transaction.
     #[allow(dead_code)]
     pub async fn begin_transaction(&self) -> Transaction {
         debug!("Beginning transaction");
         Transaction::new()
     }
 
+    /// Commit a transaction. Once a transaction is committed, all operations will be executed and
+    /// the JSON file will be updated.
     #[allow(dead_code)]
     pub async fn commit(&self, transaction: &mut Transaction) -> Result<(), Error> {
         debug!("Committing transaction");
@@ -271,9 +302,9 @@ impl Deeb {
                 Operation::UpdateOne {
                     entity,
                     query,
-                    value: _,
+                    value,
                 } => db
-                    .update_one(&entity, query.clone(), Value::Null)
+                    .update_one(&entity, query.clone(), value.clone())
                     .map(|value| (operation.clone(), ExecutedValue::UpdatedOne(value))),
                 Operation::UpdateMany {
                     entity,

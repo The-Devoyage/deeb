@@ -108,14 +108,32 @@ impl Database {
             .instances
             .get_mut(name)
             .ok_or_else(|| Error::msg("Instance not found"))?;
-        let mut file = fs::OpenOptions::new()
+        let file = fs::OpenOptions::new()
             .read(true)
             .write(true)
-            .open(&instance.file_path)?;
-        file.lock_exclusive()?;
-        let buf = &mut Vec::new();
-        file.read_to_end(buf)?;
-        instance.data = serde_json::from_slice(buf)?;
+            .open(&instance.file_path);
+        match file {
+            Ok(mut file) => {
+                file.lock_exclusive()?;
+                let buf = &mut Vec::new();
+                file.read_to_end(buf)?;
+                instance.data = serde_json::from_slice(buf)?;
+                file.unlock()?;
+            }
+            Err(_) => {
+                let mut file = fs::File::create(&instance.file_path)?;
+                let entities = instance.entities.clone();
+                let json = Value::Object(
+                    entities
+                        .iter()
+                        .map(|entity| (entity.0.clone(), Value::Array(Vec::new())))
+                        .collect(),
+                );
+                file.lock_exclusive()?;
+                file.write_all(serde_json::to_string(&json)?.as_bytes())?;
+                file.unlock()?;
+            }
+        }
         Ok(self)
     }
 
@@ -271,7 +289,7 @@ impl Database {
             Value::Object(value) => {
                 let update_value = match update_value {
                     Value::Object(update_value) => update_value,
-                    _ => return Err(Error::msg("Value must be a JSON object")),
+                    _ => return Err(Error::msg("Update value must be a JSON object")),
                 };
                 let mut value = value.clone();
                 for (update_key, update_value) in update_value {

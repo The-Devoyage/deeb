@@ -1,7 +1,65 @@
-// use crate::database::entity::Entity;
-// use database::query::Query;
-// use deeb::Deeb;
-// use serde_json::json;
+//! # Deeb
+//! Prounced `D-B`, Deeb is an Acid Compliant JSON based database for small
+//! websites and fast prototyping.
+//! Inspired by simplicity of Mongo and light weight of SqLite, Deeb is a tool
+//! that turns a set of JSON files into a database.
+
+//! While performing migrations will be possible, Deeb's JSON database interface
+//! allows you to simply open a json file and edit as needed.
+//!
+//! ## Quick Start
+//!
+//! ```rust
+//! use deeb::*;
+//! use serde_json::json;
+//! use anyhow::Error;
+//!
+//! #[tokio::main]
+//! async fn main() -> Result<(), Error> {
+//!     // Set up a new Deeb instance
+//!    let db = Deeb::new();
+//!    db.add_instance("test", "./user.json", vec!["user".into()])
+//!    .await?;
+//!    db.add_instance("test2", "./comment.json", vec!["comment".into()])
+//!    .await?;
+//!
+//!    // Create a new entity
+//!    let user = Entity::from("user");
+//!    let comment = Entity::from("comment");
+//!
+//!    // Single Operations
+//!    db.insert(&user, json!({"id": 1, "name": "Joey", "age": 10}), None).await?;
+//!    db.find_one(&user, Query::Eq("name".into(), json!("Joey")), None).await?;
+//!
+//!    // Perform a transaction
+//!    let mut transaction = db.begin_transaction().await;
+//!
+//!    // Insert data into the database
+//!    db.insert(&user, json!({"id": 1, "name": "Steve", "age": 3}), Some(&mut transaction)).await?;
+//!    db.insert(&user, json!({"id": 2, "name": "Johnny", "age": 3}), Some(&mut transaction)).await?;
+//!
+//!    db.insert(&comment, json!({"user_id": 1, "comment": "Hello"}), Some(&mut transaction)).await?;
+//!    db.insert(&comment, json!({"user_id": 1, "comment": "Hi"}), Some(&mut transaction)).await?;
+//!
+//!    // Query the database
+//!    let query = Query::Eq("name".into(), json!("Steve"));
+//!    let result = db.find_one(&user, query, Some(&mut transaction)).await?;
+//!
+//!    // Update the database
+//!    let query = Query::Eq("name".into(), json!("Steve"));
+//!    let update = json!({"name": "Steve", "age": 3});
+//!    db.update_one(&user, query, update, Some(&mut transaction)).await?;
+//!
+//!    // Delete from the database
+//!    let query = Query::Eq("name".into(), json!("Johnny"));
+//!    db.delete_one(&user, query, Some(&mut transaction)).await?;
+//!
+//!    db.commit(&mut transaction).await?;
+//!
+//!    Ok(())
+//! }
+//! ```
+//!
 
 mod database;
 mod deeb;
@@ -10,82 +68,3 @@ pub use crate::{
     database::{entity::Entity, query::Query},
     deeb::Deeb,
 };
-
-// #[tokio::main]
-// async fn main() -> Result<(), Box<dyn std::error::Error>> {
-//     env_logger::init();
-
-//     let test = Entity::from("test");
-
-//     // Set up the database
-//     let db = Deeb::new();
-
-//     db.add_instance("test", "./test.json", vec!["test".into()])
-//         .await?;
-
-//     // let mut transaction = db.begin_transaction().await;
-//     // db.insert(&test, json!({"test": "test"}), Some(&mut transaction))
-//     //     .await?;
-//     // db.insert(&test, json!({"test": "test2"}), Some(&mut transaction))
-//     //     .await?;
-//     // db.find_one(&test, json!({}), Some(&mut transaction))
-//     //     .await?;
-//     // db.commit(&mut transaction).await?;
-
-//     // db.insert(
-//     //     &test,
-//     //     json!({"test": "test2", "name": "laura", "age": 35}),
-//     //     None,
-//     // )
-//     // .await?;
-
-//     // db.insert(
-//     //     &test,
-//     //     json!({"test": "test2", "name": "bongo", "age": 75}),
-//     //     None,
-//     // )
-//     // .await?;
-
-//     let query = Query::or(vec![
-//         Query::Eq("name".into(), "nick".into()),
-//         Query::Lt("age".into(), 35.into()),
-//     ]);
-//     let result = db.find_many(&test, query.clone(), None).await?;
-//     println!("{:?}", result);
-
-//     let mut transaction = db.begin_transaction().await;
-
-//     db.insert(
-//         &test,
-//         json!({"test": "test2", "name": "Oaks", "age": 300}),
-//         Some(&mut transaction),
-//     )
-//     .await?;
-
-//     db.insert(
-//         &test,
-//         json!({"test": "test2", "name": "Ollie", "age": 3}),
-//         Some(&mut transaction),
-//     )
-//     .await?;
-
-//     db.insert(
-//         &test,
-//         json!({"test": "test", "name": "nick", "age": 35}),
-//         Some(&mut transaction),
-//     )
-//     .await?;
-
-//     db.delete_many(&test, query.clone(), Some(&mut transaction))
-//         .await?;
-
-//     let query = Query::Gt("age".into(), 20.into());
-//     let res = db.find_many(&test, query, Some(&mut transaction)).await?;
-//     println!("{:?}", res);
-
-//     db.commit(&mut transaction).await?;
-
-//     // println!("{:?}", res);
-
-//     Ok(())
-// }
