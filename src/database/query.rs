@@ -20,43 +20,58 @@ pub enum Query {
     Gte(Key, Value),
     And(Vec<Query>),
     Or(Vec<Query>),
+    All,
 }
 
 impl Query {
+    #[allow(dead_code)]
     pub fn eq(key: &str, value: Value) -> Self {
         Self::Eq(Key(key.to_string()), value)
     }
 
+    #[allow(dead_code)]
     pub fn ne(key: &str, value: Value) -> Self {
         Self::Ne(Key(key.to_string()), value)
     }
 
+    #[allow(dead_code)]
     pub fn and(queries: Vec<Query>) -> Self {
         Self::And(queries)
     }
 
+    #[allow(dead_code)]
     pub fn or(queries: Vec<Query>) -> Self {
         Self::Or(queries)
     }
 
+    #[allow(dead_code)]
     pub fn like(key: &str, value: String) -> Self {
         Self::Like(Key(key.to_string()), value)
     }
 
+    #[allow(dead_code)]
     pub fn lt(key: &str, value: Value) -> Self {
         Self::Lt(Key(key.to_string()), value)
     }
 
+    #[allow(dead_code)]
     pub fn lte(key: &str, value: Value) -> Self {
         Self::Lte(Key(key.to_string()), value)
     }
 
+    #[allow(dead_code)]
     pub fn gt(key: &str, value: Value) -> Self {
         Self::Gt(Key(key.to_string()), value)
     }
 
+    #[allow(dead_code)]
     pub fn gte(key: &str, value: Value) -> Self {
         Self::Gte(Key(key.to_string()), value)
+    }
+
+    #[allow(dead_code)]
+    pub fn all() -> Self {
+        Self::All
     }
 
     pub fn matches(&self, value: &Value) -> Result<bool, anyhow::Error> {
@@ -199,6 +214,7 @@ impl Query {
             Self::Or(queries) => queries
                 .iter()
                 .any(|query| query.matches(value).unwrap_or_else(|_| false)),
+            Self::All => true,
         };
         Ok(is_match)
     }

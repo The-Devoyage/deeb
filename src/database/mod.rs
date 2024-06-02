@@ -1,9 +1,11 @@
 use anyhow::Error;
 use entity::Entity;
+use fs2::FileExt;
 use name::Name;
 use query::Query;
 use std::collections::HashMap;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use std::fs::{self, OpenOptions};
+use std::io::{Read, Write};
 
 use serde_json::Value;
 
@@ -23,7 +25,8 @@ pub struct DatabaseInstance {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExecutedValue {
-    Inserted(Value),
+    InsertedOne(Value),
+    InsertedMany(Vec<Value>),
     FoundOne,
     FoundMany,
     DeletedOne(Value),
@@ -32,7 +35,8 @@ pub enum ExecutedValue {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Operation {
-    Insert { entity: Entity, value: Value },
+    InsertOne { entity: Entity, value: Value },
+    InsertMany { entity: Entity, values: Vec<Value> },
     FindOne { entity: Entity, query: Query },
     FindMany { entity: Entity, query: Query },
     DeleteOne { entity: Entity, query: Query },
@@ -69,13 +73,19 @@ impl Database {
         self
     }
 
-    pub async fn load(&mut self) -> Result<&mut Self, Error> {
-        for instance in self.instances.values_mut() {
-            let mut file = tokio::fs::File::open(&instance.file_path).await?;
-            let mut contents = Vec::new();
-            file.read_to_end(&mut contents).await?;
-            instance.data = serde_json::from_slice(&contents)?;
-        }
+    pub fn load_instance(&mut self, name: &Name) -> Result<&mut Self, Error> {
+        let instance = self
+            .instances
+            .get_mut(name)
+            .ok_or_else(|| Error::msg("Instance not found"))?;
+        let mut file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&instance.file_path)?;
+        file.lock_exclusive()?;
+        let buf = &mut Vec::new();
+        file.read_to_end(buf)?;
+        instance.data = serde_json::from_slice(buf)?;
         Ok(self)
     }
 
@@ -115,6 +125,29 @@ impl Database {
 
         data.push(insert_value.clone());
         Ok(insert_value)
+    }
+
+    pub async fn insert_many(
+        &mut self,
+        entity: &Entity,
+        insert_values: Vec<Value>,
+    ) -> Result<Vec<Value>, Error> {
+        for insert_value in insert_values.iter() {
+            if !insert_value.is_object() {
+                return Err(Error::msg("Value must be a JSON object"));
+            }
+        }
+        let instance = self
+            .get_instance_by_entity_mut(entity)
+            .ok_or_else(|| Error::msg("Entity not found"))?;
+        let data = instance.data.entry(entity.clone()).or_insert(Vec::new());
+
+        let mut values = vec![];
+        for insert_value in insert_values {
+            data.push(insert_value.clone());
+            values.push(insert_value);
+        }
+        Ok(values)
     }
 
     pub async fn find_one(&self, entity: &Entity, query: Query) -> Result<Value, Error> {
@@ -187,15 +220,20 @@ impl Database {
         Ok(values)
     }
 
-    pub async fn commit(&self, name: Vec<Name>) -> Result<(), Error> {
+    pub fn commit(&self, name: Vec<Name>) -> Result<(), Error> {
         for name in name {
             let instance = self
                 .instances
                 .get(&name)
                 .ok_or_else(|| Error::msg("Instance not found"))?;
-            let mut file = tokio::fs::File::create(&instance.file_path).await?;
-            file.write_all(serde_json::to_string(&instance.data)?.as_bytes())
-                .await?;
+            let mut file = OpenOptions::new()
+                .read(true)
+                .write(true)
+                .open(&instance.file_path)?;
+            file.lock_exclusive()?;
+            file.set_len(0)?;
+            file.write_all(serde_json::to_string(&instance.data)?.as_bytes())?;
+            file.unlock()?;
         }
         Ok(())
     }
