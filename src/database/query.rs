@@ -3,6 +3,8 @@ use serde_json::Value;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Key(String);
 
+impl Key {}
+
 impl From<&str> for Key {
     fn from(s: &str) -> Self {
         Self(s.to_string())
@@ -74,18 +76,34 @@ impl Query {
         Self::All
     }
 
+    fn get_value(&self, value: &Value, key: &str) -> Option<Value> {
+        if !key.contains('.') {
+            return value.get(key).cloned();
+        }
+        let mut keys = key.split('.').peekable();
+        let mut value = value;
+        while let Some(key) = keys.next() {
+            if let Some(nested) = value.get(key) {
+                value = nested;
+            } else {
+                return None;
+            }
+        }
+        Some(value.clone())
+    }
+
     pub fn matches(&self, value: &Value) -> Result<bool, anyhow::Error> {
         let is_match = match self {
             Self::Eq(key, query_value) => {
-                let value = value.get(&key.0);
-                value == Some(query_value)
+                let value = self.get_value(value, &key.0);
+                value == Some(query_value.clone())
             }
             Self::Ne(key, query_value) => {
-                let value = value.get(&key.0);
-                value != Some(query_value)
+                let value = self.get_value(value, &key.0);
+                value != Some(query_value.clone())
             }
             Self::Like(key, query_value) => {
-                let value = value.get(&key.0);
+                let value = self.get_value(value, &key.0);
                 if let Some(value) = value {
                     if let Some(value) = value.as_str() {
                         value.contains(query_value)
@@ -97,7 +115,7 @@ impl Query {
                 }
             }
             Self::Lt(key, query_value) => {
-                let value = value.get(&key.0);
+                let value = self.get_value(value, &key.0);
                 if let Some(value) = value {
                     if let Some(value) = value.as_f64() {
                         let query_value = query_value.as_f64();
@@ -125,7 +143,7 @@ impl Query {
                 }
             }
             Self::Lte(key, query_value) => {
-                let value = value.get(&key.0);
+                let value = self.get_value(value, &key.0);
                 if let Some(value) = value {
                     if let Some(value) = value.as_f64() {
                         let query_value = query_value.as_f64();
@@ -153,7 +171,7 @@ impl Query {
                 }
             }
             Self::Gt(key, query_value) => {
-                let value = value.get(&key.0);
+                let value = self.get_value(value, &key.0);
                 if let Some(value) = value {
                     if let Some(value) = value.as_f64() {
                         let query_value = query_value.as_f64();
@@ -181,7 +199,7 @@ impl Query {
                 }
             }
             Self::Gte(key, query_value) => {
-                let value = value.get(&key.0);
+                let value = self.get_value(value, &key.0);
                 if let Some(value) = value {
                     if let Some(value) = value.as_f64() {
                         let query_value = query_value.as_f64();

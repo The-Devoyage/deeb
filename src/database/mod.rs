@@ -160,7 +160,7 @@ impl Database {
             .ok_or_else(|| Error::msg("Data not found"))?;
         let result = data
             .iter()
-            .find(|value| query.matches(value).unwrap_or(false));
+            .find(|value| query.clone().matches(value).unwrap_or(false));
         result
             .map(|value| value.clone())
             .ok_or_else(|| Error::msg("Value not found"))
@@ -176,7 +176,7 @@ impl Database {
             .ok_or_else(|| Error::msg("Data not found"))?;
         let result = data
             .iter()
-            .filter(|value| query.matches(value).unwrap_or(false));
+            .filter(|value| query.clone().matches(value).unwrap_or(false));
         Ok(result.cloned().collect())
     }
 
@@ -190,7 +190,7 @@ impl Database {
             .ok_or_else(|| Error::msg("Data not found"))?;
         let index = data
             .iter()
-            .position(|value| query.matches(value).unwrap_or(false))
+            .position(|value| query.clone().matches(value).unwrap_or(false))
             .ok_or_else(|| Error::msg("Value not found"))?;
         Ok(data.remove(index))
     }
@@ -210,7 +210,7 @@ impl Database {
         let indexes = data
             .iter()
             .enumerate()
-            .filter(|(_, value)| query.matches(value).unwrap_or(false))
+            .filter(|(_, value)| query.clone().matches(value).unwrap_or(false))
             .map(|(index, _)| index)
             .collect::<Vec<_>>();
         let mut values = vec![];
