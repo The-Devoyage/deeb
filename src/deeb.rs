@@ -56,7 +56,7 @@ impl Deeb {
         }
 
         let mut db = self.db.write().await;
-        let value = db.insert(entity, value).await?;
+        let value = db.insert(entity, value)?;
         let name = db.get_instance_name_by_entity(entity)?;
         db.commit(vec![name])?;
         Ok(value)
@@ -80,7 +80,7 @@ impl Deeb {
         }
 
         let mut db = self.db.write().await;
-        let values = db.insert_many(entity, values).await?;
+        let values = db.insert_many(entity, values)?;
         let name = db.get_instance_name_by_entity(entity)?;
         db.commit(vec![name])?;
         Ok(values)
@@ -104,7 +104,7 @@ impl Deeb {
         }
 
         let db = self.db.read().await;
-        let value = db.find_one(entity, query).await?;
+        let value = db.find_one(entity, query)?;
         trace!("Found value: {:?}", value);
         Ok(value)
     }
@@ -127,7 +127,7 @@ impl Deeb {
         }
 
         let db = self.db.read().await;
-        let values = db.find_many(entity, query).await?;
+        let values = db.find_many(entity, query)?;
         trace!("Found values: {:?}", values);
         Ok(values)
     }
@@ -150,7 +150,7 @@ impl Deeb {
         }
 
         let mut db = self.db.write().await;
-        let value = db.delete_one(entity, query).await?;
+        let value = db.delete_one(entity, query)?;
         let name = db.get_instance_name_by_entity(entity)?;
         db.commit(vec![name])?;
         trace!("Deleted value: {:?}", value);
@@ -175,10 +175,64 @@ impl Deeb {
         }
 
         let mut db = self.db.write().await;
-        let values = db.delete_many(entity, query).await?;
+        let values = db.delete_many(entity, query)?;
         let name = db.get_instance_name_by_entity(entity)?;
         db.commit(vec![name])?;
         trace!("Deleted values: {:?}", values);
+        Ok(values)
+    }
+
+    #[allow(dead_code)]
+    pub async fn update_one(
+        &self,
+        entity: &Entity,
+        query: Query,
+        update_value: Value,
+        transaction: Option<&mut Transaction>,
+    ) -> Result<Value, Error> {
+        debug!("Updating one");
+        if let Some(transaction) = transaction {
+            let operation = Operation::UpdateOne {
+                entity: entity.clone(),
+                query: query.clone(),
+                value: update_value.clone(),
+            };
+            transaction.add_operation(operation);
+            return Ok(update_value);
+        }
+
+        let mut db = self.db.write().await;
+        let value = db.update_one(entity, query, update_value)?;
+        let name = db.get_instance_name_by_entity(entity)?;
+        db.commit(vec![name])?;
+        trace!("Updated value: {:?}", value);
+        Ok(value)
+    }
+
+    #[allow(dead_code)]
+    pub async fn update_many(
+        &self,
+        entity: &Entity,
+        query: Query,
+        update_value: Value,
+        transaction: Option<&mut Transaction>,
+    ) -> Result<Vec<Value>, Error> {
+        debug!("Updating many");
+        if let Some(transaction) = transaction {
+            let operation = Operation::UpdateMany {
+                entity: entity.clone(),
+                query: query.clone(),
+                value: update_value.clone(),
+            };
+            transaction.add_operation(operation);
+            return Ok(vec![]);
+        }
+
+        let mut db = self.db.write().await;
+        let values = db.update_many(entity, query, update_value)?;
+        let name = db.get_instance_name_by_entity(entity)?;
+        db.commit(vec![name])?;
+        trace!("Updated values: {:?}", values);
         Ok(values)
     }
 
@@ -198,28 +252,36 @@ impl Deeb {
             let result = match operation {
                 Operation::InsertOne { entity, value } => db
                     .insert(&entity, value.clone())
-                    .await
                     .map(|value| (operation.clone(), ExecutedValue::InsertedOne(value))),
                 Operation::InsertMany { entity, values } => db
                     .insert_many(&entity, values.clone())
-                    .await
                     .map(|values| (operation.clone(), ExecutedValue::InsertedMany(values))),
                 Operation::FindOne { entity, query } => db
                     .find_one(&entity, query.clone())
-                    .await
                     .map(|_value| (operation.clone(), ExecutedValue::FoundOne)),
                 Operation::FindMany { entity, query } => db
                     .find_many(&entity, query.clone())
-                    .await
                     .map(|_values| (operation.clone(), ExecutedValue::FoundMany)),
                 Operation::DeleteOne { entity, query } => db
                     .delete_one(&entity, query.clone())
-                    .await
                     .map(|value| (operation.clone(), ExecutedValue::DeletedOne(value))),
                 Operation::DeleteMany { entity, query } => db
                     .delete_many(&entity, query.clone())
-                    .await
                     .map(|values| (operation.clone(), ExecutedValue::DeletedMany(values))),
+                Operation::UpdateOne {
+                    entity,
+                    query,
+                    value: _,
+                } => db
+                    .update_one(&entity, query.clone(), Value::Null)
+                    .map(|value| (operation.clone(), ExecutedValue::UpdatedOne(value))),
+                Operation::UpdateMany {
+                    entity,
+                    query,
+                    value,
+                } => db
+                    .update_many(&entity, query.clone(), value.clone())
+                    .map(|values| (operation.clone(), ExecutedValue::UpdatedMany(values))),
             };
             trace!("Executed operation: {:?}", operation);
 
@@ -270,7 +332,7 @@ impl Deeb {
                                 })
                                 .collect::<Vec<_>>(),
                         );
-                        db.delete_one(&entity, query).await?;
+                        db.delete_one(&entity, query)?;
                     }
                     _ => {}
                 },
@@ -287,21 +349,21 @@ impl Deeb {
                                     })
                                     .collect::<Vec<_>>(),
                             );
-                            db.delete_one(&entity, query).await?;
+                            db.delete_one(&entity, query)?;
                         }
                     }
                     _ => {}
                 },
                 Operation::DeleteOne { entity, .. } => match executed_value {
                     ExecutedValue::DeletedOne(value) => {
-                        db.insert(&entity, value.clone()).await.unwrap();
+                        db.insert(&entity, value.clone()).unwrap();
                     }
                     _ => {}
                 },
                 Operation::DeleteMany { entity, .. } => match executed_value {
                     ExecutedValue::DeletedMany(values) => {
                         for value in values.iter() {
-                            db.insert(&entity, value.clone()).await.unwrap();
+                            db.insert(&entity, value.clone()).unwrap();
                         }
                     }
                     _ => {}

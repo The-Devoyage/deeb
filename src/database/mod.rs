@@ -31,16 +31,46 @@ pub enum ExecutedValue {
     FoundMany,
     DeletedOne(Value),
     DeletedMany(Vec<Value>),
+    UpdatedOne(Value),
+    UpdatedMany(Vec<Value>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Operation {
-    InsertOne { entity: Entity, value: Value },
-    InsertMany { entity: Entity, values: Vec<Value> },
-    FindOne { entity: Entity, query: Query },
-    FindMany { entity: Entity, query: Query },
-    DeleteOne { entity: Entity, query: Query },
-    DeleteMany { entity: Entity, query: Query },
+    InsertOne {
+        entity: Entity,
+        value: Value,
+    },
+    InsertMany {
+        entity: Entity,
+        values: Vec<Value>,
+    },
+    FindOne {
+        entity: Entity,
+        query: Query,
+    },
+    FindMany {
+        entity: Entity,
+        query: Query,
+    },
+    DeleteOne {
+        entity: Entity,
+        query: Query,
+    },
+    DeleteMany {
+        entity: Entity,
+        query: Query,
+    },
+    UpdateOne {
+        entity: Entity,
+        query: Query,
+        value: Value,
+    },
+    UpdateMany {
+        entity: Entity,
+        query: Query,
+        value: Value,
+    },
 }
 
 /// A database that stores multiple instances of data.
@@ -112,7 +142,7 @@ impl Database {
     }
 
     // Operations
-    pub async fn insert(&mut self, entity: &Entity, insert_value: Value) -> Result<Value, Error> {
+    pub fn insert(&mut self, entity: &Entity, insert_value: Value) -> Result<Value, Error> {
         // Check insert_value, it needs to be a JSON object.
         // It can not have field or `_id`.
         if !insert_value.is_object() {
@@ -127,7 +157,7 @@ impl Database {
         Ok(insert_value)
     }
 
-    pub async fn insert_many(
+    pub fn insert_many(
         &mut self,
         entity: &Entity,
         insert_values: Vec<Value>,
@@ -150,7 +180,7 @@ impl Database {
         Ok(values)
     }
 
-    pub async fn find_one(&self, entity: &Entity, query: Query) -> Result<Value, Error> {
+    pub fn find_one(&self, entity: &Entity, query: Query) -> Result<Value, Error> {
         let instance = self
             .get_instance_by_entity(entity)
             .ok_or_else(|| Error::msg("Entity not found"))?;
@@ -166,7 +196,7 @@ impl Database {
             .ok_or_else(|| Error::msg("Value not found"))
     }
 
-    pub async fn find_many(&self, entity: &Entity, query: Query) -> Result<Vec<Value>, Error> {
+    pub fn find_many(&self, entity: &Entity, query: Query) -> Result<Vec<Value>, Error> {
         let instance = self
             .get_instance_by_entity(entity)
             .ok_or_else(|| Error::msg("Entity not found"))?;
@@ -180,7 +210,7 @@ impl Database {
         Ok(result.cloned().collect())
     }
 
-    pub async fn delete_one(&mut self, entity: &Entity, query: Query) -> Result<Value, Error> {
+    pub fn delete_one(&mut self, entity: &Entity, query: Query) -> Result<Value, Error> {
         let instance = self
             .get_instance_by_entity_mut(entity)
             .ok_or_else(|| Error::msg("Entity not found"))?;
@@ -195,11 +225,7 @@ impl Database {
         Ok(data.remove(index))
     }
 
-    pub async fn delete_many(
-        &mut self,
-        entity: &Entity,
-        query: Query,
-    ) -> Result<Vec<Value>, Error> {
+    pub fn delete_many(&mut self, entity: &Entity, query: Query) -> Result<Vec<Value>, Error> {
         let instance = self
             .get_instance_by_entity_mut(entity)
             .ok_or_else(|| Error::msg("Entity not found"))?;
@@ -216,6 +242,90 @@ impl Database {
         let mut values = vec![];
         for index in indexes.iter().rev() {
             values.push(data.remove(*index));
+        }
+        Ok(values)
+    }
+
+    pub fn update_one(
+        &mut self,
+        entity: &Entity,
+        query: Query,
+        update_value: Value,
+    ) -> Result<Value, Error> {
+        let instance = self
+            .get_instance_by_entity_mut(entity)
+            .ok_or_else(|| Error::msg("Entity not found"))?;
+        let data = instance
+            .data
+            .get_mut(entity)
+            .ok_or_else(|| Error::msg("Data not found"))?;
+        let index = data
+            .iter()
+            .position(|value| query.clone().matches(value).unwrap_or(false))
+            .ok_or_else(|| Error::msg("Value not found"))?;
+        let value = data
+            .get_mut(index)
+            .ok_or_else(|| Error::msg("Value not found"))?;
+        // combine the values together, so that the updated values are merged with the existing values.
+        let new_value = match value {
+            Value::Object(value) => {
+                let update_value = match update_value {
+                    Value::Object(update_value) => update_value,
+                    _ => return Err(Error::msg("Value must be a JSON object")),
+                };
+                let mut value = value.clone();
+                for (update_key, update_value) in update_value {
+                    value.insert(update_key, update_value);
+                }
+                Value::Object(value)
+            }
+            _ => return Err(Error::msg("Value must be a JSON object")),
+        };
+        *value = new_value.clone();
+        Ok(new_value)
+    }
+
+    pub fn update_many(
+        &mut self,
+        entity: &Entity,
+        query: Query,
+        update_value: Value,
+    ) -> Result<Vec<Value>, Error> {
+        let instance = self
+            .get_instance_by_entity_mut(entity)
+            .ok_or_else(|| Error::msg("Entity not found"))?;
+        let data = instance
+            .data
+            .get_mut(entity)
+            .ok_or_else(|| Error::msg("Data not found"))?;
+        let indexes = data
+            .iter()
+            .enumerate()
+            .filter(|(_, value)| query.clone().matches(value).unwrap_or(false))
+            .map(|(index, _)| index)
+            .collect::<Vec<_>>();
+        let mut values = vec![];
+        for index in indexes.iter() {
+            let value = data
+                .get_mut(*index)
+                .ok_or_else(|| Error::msg("Value not found"))?;
+            // combine the values together, so that the updated values are merged with the existing values.
+            let new_value = match value {
+                Value::Object(value) => {
+                    let update_value = match update_value.clone() {
+                        Value::Object(update_value) => update_value,
+                        _ => return Err(Error::msg("Value must be a JSON object")),
+                    };
+                    let mut value = value.clone();
+                    for (update_key, update_value) in update_value {
+                        value.insert(update_key, update_value);
+                    }
+                    Value::Object(value)
+                }
+                _ => return Err(Error::msg("Value must be a JSON object")),
+            };
+            *value = new_value.clone();
+            values.push(new_value);
         }
         Ok(values)
     }

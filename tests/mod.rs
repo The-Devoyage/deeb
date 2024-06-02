@@ -143,6 +143,33 @@ async fn transaction() -> Result<(), Error> {
 }
 
 #[tokio::test]
+async fn update_one() -> Result<(), Error> {
+    let db = spawn_deeb().await?;
+    let entity = Entity::from("user");
+    let query = Query::Eq("name".into(), "oliver".into());
+    let update = json!({"name": "olivia"});
+    let result = db.update_one(&entity, query, update, None).await?;
+    assert_eq!(result, json!({"name": "olivia", "age": 0.5}));
+    Ok(())
+}
+
+#[tokio::test]
+async fn update_many() -> Result<(), Error> {
+    let db = spawn_deeb().await?;
+    let entity = Entity::from("user");
+    let query = Query::Eq("age".into(), 0.5.into());
+    let update = json!({"age": 1.0});
+    let result = db.update_many(&entity, query, update, None).await?;
+    assert!(
+        result.contains(&json!({"name": "oliver", "age": 1.0}))
+            && result.contains(&json!({"name": "magnolia", "age": 1.0}))
+            && result.contains(&json!({"name": "olliard", "age": 1.0}))
+    );
+    Ok(())
+}
+
+// Test Query
+#[tokio::test]
 async fn test_eq() {
     let query = Query::Eq("name".into(), "nick".into());
     let value = json!({"name": "nick", "age": 35});
