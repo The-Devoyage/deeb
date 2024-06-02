@@ -19,9 +19,9 @@
 //!     // Set up a new Deeb instance
 //!    let db = Deeb::new();
 //!    db.add_instance("test", "./user.json", vec!["user".into()])
-//!    .await?;
+//!     .await?;
 //!    db.add_instance("test2", "./comment.json", vec!["comment".into()])
-//!    .await?;
+//!     .await?;
 //!
 //!    // Create a new entity
 //!    let user = Entity::from("user");
