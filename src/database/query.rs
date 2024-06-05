@@ -26,51 +26,149 @@ pub enum Query {
 }
 
 impl Query {
+    /// Create a new query that matches documents based on exact match.
+    ///
+    /// ```
+    /// use deeb::*;
+    ///
+    /// let query = Query::eq("name", "John");
+    /// ```
     #[allow(dead_code)]
-    pub fn eq(key: &str, value: Value) -> Self {
-        Self::Eq(Key(key.to_string()), value)
+    pub fn eq<K, V>(key: K, value: V) -> Self
+    where
+        K: Into<Key>,
+        V: Into<Value>,
+    {
+        Self::Eq(key.into(), value.into())
     }
 
+    /// Create a new query that matches documents based on not equal match.
+    ///
+    /// ```
+    /// use deeb::*;
+    /// let query = Query::ne("name", "John");
+    /// ```
     #[allow(dead_code)]
-    pub fn ne(key: &str, value: Value) -> Self {
-        Self::Ne(Key(key.to_string()), value)
+    pub fn ne<K, V>(key: K, value: V) -> Self
+    where
+        K: Into<Key>,
+        V: Into<Value>,
+    {
+        Self::Ne(key.into(), value.into())
     }
 
+    /// Create a new query that matches documents based on multiple conditions.
+    ///
+    /// ```
+    /// use deeb::*;
+    ///
+    /// let query = Query::and(vec![
+    ///    Query::eq("name", "John"),
+    ///    Query::eq("age", 30),
+    ///    Query::eq("city", "New York"),
+    /// ]);
+    /// ```
     #[allow(dead_code)]
     pub fn and(queries: Vec<Query>) -> Self {
         Self::And(queries)
     }
 
+    /// Create a new query that matches documents based on multiple conditions.
+    ///
+    /// ```
+    /// use deeb::*;
+    ///
+    /// let query = Query::or(vec![
+    ///   Query::eq("name", "John"),
+    ///   Query::eq("age", 30),
+    ///  Query::eq("city", "New York"),
+    /// ]);
+    /// ```
     #[allow(dead_code)]
     pub fn or(queries: Vec<Query>) -> Self {
         Self::Or(queries)
     }
 
+    /// Create a new query that matches documents based on like match.
+    ///
+    /// ```
+    /// use deeb::*;
+    /// let query = Query::like("name", "John");
+    /// ```
     #[allow(dead_code)]
-    pub fn like(key: &str, value: String) -> Self {
-        Self::Like(Key(key.to_string()), value)
+    pub fn like<K, V>(key: K, value: V) -> Self
+    where
+        K: Into<Key>,
+        V: Into<String>,
+    {
+        Self::Like(key.into(), value.into())
     }
 
+    /// Create a new query that matches documents based on less than match.
+    ///
+    /// ```
+    /// use deeb::*;
+    /// let query = Query::lt("age", 30);
+    /// ```
     #[allow(dead_code)]
-    pub fn lt(key: &str, value: Value) -> Self {
-        Self::Lt(Key(key.to_string()), value)
+    pub fn lt<K, V>(key: K, value: V) -> Self
+    where
+        K: Into<Key>,
+        V: Into<Value>,
+    {
+        Self::Lt(key.into(), value.into())
     }
 
+    /// Create a new query that matches documents based on less than or equal match.
+    ///
+    /// ```
+    /// use deeb::*;
+    /// let query = Query::lte("age", 30);
+    /// ```
     #[allow(dead_code)]
-    pub fn lte(key: &str, value: Value) -> Self {
-        Self::Lte(Key(key.to_string()), value)
+    pub fn lte<K, V>(key: K, value: V) -> Self
+    where
+        K: Into<Key>,
+        V: Into<Value>,
+    {
+        Self::Lte(key.into(), value.into())
     }
 
+    /// Create a new query that matches documents based on greater than match.
+    ///
+    /// ```
+    /// use deeb::*;
+    /// let query = Query::gt("age", 30);
+    /// ```
     #[allow(dead_code)]
-    pub fn gt(key: &str, value: Value) -> Self {
-        Self::Gt(Key(key.to_string()), value)
+    pub fn gt<K, V>(key: K, value: V) -> Self
+    where
+        K: Into<Key>,
+        V: Into<Value>,
+    {
+        Self::Gt(key.into(), value.into())
     }
 
+    /// Create a new query that matches documents based on greater than or equal match.
+    ///
+    /// ```
+    /// use deeb::*;
+    /// let query = Query::gte("age", 30);
+    /// ```
     #[allow(dead_code)]
-    pub fn gte(key: &str, value: Value) -> Self {
-        Self::Gte(Key(key.to_string()), value)
+    pub fn gte<K, V>(key: K, value: V) -> Self
+    where
+        K: Into<Key>,
+        V: Into<Value>,
+    {
+        Self::Gte(key.into(), value.into())
     }
 
+    /// Create a new query that matches all documents.
+    /// ```
+    /// use deeb::*;
+    /// let query = Query::all();
+    /// ```
     #[allow(dead_code)]
     pub fn all() -> Self {
         Self::All
@@ -92,6 +190,16 @@ impl Query {
         Some(value.clone())
     }
 
+    /// Check if the query matches the value.
+    ///
+    /// ```
+    /// use deeb::*;
+    /// use serde_json::json;
+    /// let query = Query::eq("name", "John");
+    /// let value = json!({"name": "John"});
+    /// let is_match = query.matches(&value).unwrap();
+    /// assert_eq!(is_match, true);
+    /// ```
     pub fn matches(&self, value: &Value) -> Result<bool, anyhow::Error> {
         let is_match = match self {
             Self::Eq(key, query_value) => {

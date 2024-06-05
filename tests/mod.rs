@@ -4,19 +4,19 @@ use serde_json::json;
 
 async fn spawn_deeb() -> Result<Deeb, Error> {
     let db = Deeb::new();
-    db.add_instance("test", "./tests/test.json", vec!["user".into()])
+    let user = Entity::from("user");
+
+    db.add_instance("test", "./tests/test.json", vec![user.clone()])
         .await?;
 
-    let entity = Entity::from("user");
-
-    db.delete_many(&entity, Query::All, None).await?;
+    db.delete_many(&user, Query::All, None).await?;
 
     // Populate initial data
-    db.insert(&entity, json!({"name": "oliver", "age": 0.5}), None)
+    db.insert(&user, json!({"name": "oliver", "age": 0.5}), None)
         .await?;
-    db.insert(&entity, json!({"name": "magnolia", "age": 0.5}), None)
+    db.insert(&user, json!({"name": "magnolia", "age": 0.5}), None)
         .await?;
-    db.insert(&entity, json!({"name": "olliard", "age": 0.5}), None)
+    db.insert(&user, json!({"name": "olliard", "age": 0.5}), None)
         .await?;
     Ok(db)
 }
@@ -60,7 +60,7 @@ async fn insert_many() -> Result<(), Error> {
 async fn find_one() -> Result<(), Error> {
     let db = spawn_deeb().await?;
     let entity = Entity::from("user");
-    let query = Query::Eq("name".into(), "oliver".into());
+    let query = Query::eq("name", "oliver");
     let result = db.find_one(&entity, query, None).await?;
     assert_eq!(result, json!({"name": "oliver", "age": 0.5}));
     Ok(())
@@ -70,7 +70,7 @@ async fn find_one() -> Result<(), Error> {
 async fn find_many() -> Result<(), Error> {
     let db = spawn_deeb().await?;
     let entity = Entity::from("user");
-    let query = Query::Eq("age".into(), 0.5.into());
+    let query = Query::eq("age", 0.5);
     let result = db.find_many(&entity, query, None).await?;
     assert!(
         result.contains(&json!({"name": "oliver", "age": 0.5}))
@@ -84,7 +84,7 @@ async fn find_many() -> Result<(), Error> {
 async fn delete_one() -> Result<(), Error> {
     let db = spawn_deeb().await?;
     let entity = Entity::from("user");
-    let query = Query::Eq("name".into(), "oliver".into());
+    let query = Query::eq("name", "oliver");
     let result = db.delete_one(&entity, query, None).await?;
     assert_eq!(result, json!({"name": "oliver", "age": 0.5}));
     Ok(())
@@ -94,7 +94,7 @@ async fn delete_one() -> Result<(), Error> {
 async fn delete_many() -> Result<(), Error> {
     let db = spawn_deeb().await?;
     let entity = Entity::from("user");
-    let query = Query::Eq("age".into(), 0.5.into());
+    let query = Query::eq("age", 0.5);
     let result = db.delete_many(&entity, query, None).await?;
     assert!(
         result.contains(&json!({"name": "oliver", "age": 0.5}))
@@ -129,9 +129,9 @@ async fn transaction() -> Result<(), Error> {
     .await?;
     db.commit(&mut transaction).await?;
     let query = Query::Or(vec![
-        Query::Eq("name".into(), "Al".into()),
-        Query::Eq("name".into(), "Peg".into()),
-        Query::Eq("name".into(), "Bud".into()),
+        Query::eq("name", "Al"),
+        Query::eq("name", "Peg"),
+        Query::eq("name", "Bud"),
     ]);
     let result = db.find_many(&entity, query, None).await?;
     assert!(
@@ -146,7 +146,7 @@ async fn transaction() -> Result<(), Error> {
 async fn update_one() -> Result<(), Error> {
     let db = spawn_deeb().await?;
     let entity = Entity::from("user");
-    let query = Query::Eq("name".into(), "oliver".into());
+    let query = Query::eq("name", "oliver");
     let update = json!({"name": "olivia"});
     let result = db.update_one(&entity, query, update, None).await?;
     assert_eq!(result, json!({"name": "olivia", "age": 0.5}));
@@ -157,7 +157,7 @@ async fn update_one() -> Result<(), Error> {
 async fn update_many() -> Result<(), Error> {
     let db = spawn_deeb().await?;
     let entity = Entity::from("user");
-    let query = Query::Eq("age".into(), 0.5.into());
+    let query = Query::eq("age", 0.5);
     let update = json!({"age": 1.0});
     let result = db.update_many(&entity, query, update, None).await?;
     assert!(
@@ -171,118 +171,112 @@ async fn update_many() -> Result<(), Error> {
 // Test Query
 #[tokio::test]
 async fn test_eq() {
-    let query = Query::Eq("name".into(), "nick".into());
+    let query = Query::eq("name", "nick");
     let value = json!({"name": "nick", "age": 35});
     assert!(query.matches(&value).unwrap());
 }
 
 #[tokio::test]
 async fn test_nested_eq() {
-    let query = Query::Eq("user.name".into(), "nick".into());
+    let query = Query::eq("user.name", "nick");
     let value = json!({"user": {"name": "nick", "age": 35}});
     assert!(query.matches(&value).unwrap());
 }
 
 #[tokio::test]
 async fn test_ne() {
-    let query = Query::Ne("name".into(), "nick".into());
+    let query = Query::ne("name", "nick");
     let value = json!({"name": "nick", "age": 35});
     assert!(!query.matches(&value).unwrap());
 }
 
 #[tokio::test]
 async fn test_nested_ne() {
-    let query = Query::Ne("user.name".into(), "nick".into());
+    let query = Query::ne("user.name", "nick");
     let value = json!({"user": {"name": "nick", "age": 35}});
     assert!(!query.matches(&value).unwrap());
 }
 
 #[tokio::test]
 async fn test_like() {
-    let query = Query::Like("name".into(), "ni".into());
+    let query = Query::like("name", "ni");
     let value = json!({"name": "nick", "age": 35});
     assert!(query.matches(&value).unwrap());
 }
 
 #[tokio::test]
 async fn test_nested_like() {
-    let query = Query::Like("user.name".into(), "ni".into());
+    let query = Query::like("user.name", "ni");
     let value = json!({"user": {"name": "nick", "age": 35}});
     assert!(query.matches(&value).unwrap());
 }
 
 #[tokio::test]
 async fn test_lt() {
-    let query = Query::Lt("age".into(), 35.into());
+    let query = Query::lt("age", 35);
     let value = json!({"age": 34});
     assert!(query.matches(&value).unwrap());
 }
 
 #[tokio::test]
 async fn test_nested_lt() {
-    let query = Query::Lt("user.age".into(), 35.into());
+    let query = Query::lt("user.age", 35);
     let value = json!({"user": {"name": "nick", "age": 34}});
     assert!(query.matches(&value).unwrap());
 }
 
 #[tokio::test]
 async fn test_lte() {
-    let query = Query::Lte("age".into(), 35.into());
+    let query = Query::lte("age", 35);
     let value = json!({"age": 35});
     assert!(query.matches(&value).unwrap());
 }
 
 #[tokio::test]
 async fn test_nested_lte() {
-    let query = Query::Lte("user.age".into(), 35.into());
+    let query = Query::lte("user.age", 35);
     let value = json!({"user": {"name": "nick", "age": 35}});
     assert!(query.matches(&value).unwrap());
 }
 
 #[tokio::test]
 async fn test_gt() {
-    let query = Query::Gt("age".into(), 35.into());
+    let query = Query::gt("age", 35);
     let value = json!({"age": 36});
     assert!(query.matches(&value).unwrap());
 }
 
 #[tokio::test]
 async fn test_nested_gt() {
-    let query = Query::Gt("user.age".into(), 35.into());
+    let query = Query::gt("user.age", 35);
     let value = json!({"user": {"name": "nick", "age": 36}});
     assert!(query.matches(&value).unwrap());
 }
 
 #[tokio::test]
 async fn test_gte() {
-    let query = Query::Gte("age".into(), 35.into());
+    let query = Query::gte("age", 35);
     let value = json!({"age": 35});
     assert!(query.matches(&value).unwrap());
 }
 
 #[tokio::test]
 async fn test_nested_gte() {
-    let query = Query::Gte("user.age".into(), 35.into());
+    let query = Query::gte("user.age", 35);
     let value = json!({"user": {"name": "nick", "age": 35}});
     assert!(query.matches(&value).unwrap());
 }
 
 #[tokio::test]
 async fn test_and() {
-    let query = Query::And(vec![
-        Query::Eq("name".into(), "nick".into()),
-        Query::Lt("age".into(), 35.into()),
-    ]);
+    let query = Query::And(vec![Query::eq("name", "nick"), Query::lt("age", 35)]);
     let value = json!({"name": "nick", "age": 34});
     assert!(query.matches(&value).unwrap());
 }
 
 #[tokio::test]
 async fn test_or() {
-    let query = Query::Or(vec![
-        Query::Eq("name".into(), "nick".into()),
-        Query::Lt("age".into(), 35.into()),
-    ]);
+    let query = Query::Or(vec![Query::eq("name", "nick"), Query::lt("age", 35)]);
     let value = json!({"name": "nick", "age": 36});
     assert!(query.matches(&value).unwrap());
 }

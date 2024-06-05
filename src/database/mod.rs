@@ -85,15 +85,14 @@ impl Database {
         }
     }
 
-    /// Add a new instance to the database.
     pub fn add_instance(
         &mut self,
-        name: Name,
+        name: &Name,
         file_path: &str,
         entities: Vec<Entity>,
     ) -> &mut Self {
         self.instances.insert(
-            name,
+            name.clone(),
             DatabaseInstance {
                 file_path: file_path.to_string(),
                 entities,

@@ -15,6 +15,17 @@ pub struct Deeb {
 
 impl Deeb {
     /// Create a new Deeb instance.
+    ///
+    /// ```rust,no_run
+    /// # use deeb::*;
+    /// # use anyhow::Error;
+    /// # use serde_json::json;
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Error> {
+    ///    let db = Deeb::new();
+    /// #   Ok(())
+    /// # }
+    /// ```
     #[allow(dead_code)]
     pub fn new() -> Self {
         debug!("Creating new Deeb instance");
@@ -27,24 +38,57 @@ impl Deeb {
     /// Add an instance to the database. An instance is a segment of the database. This
     /// is a JSON file that may have one or more entities. You can add multiple instances
     /// to the database allowing you to segment your data between different files.
+    ///
+    /// ```rust,no_run
+    /// # use deeb::*;
+    /// # use anyhow::Error;
+    /// # use serde_json::json;
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Error> {
+    ///   # let user = Entity::from("user");
+    ///   # let comment = Entity::from("comment");
+    ///   # let db = Deeb::new();
+    ///   db.add_instance("test", "./user.json", vec![user.clone()])
+    ///   .await?;
+    ///   db.add_instance("test2", "./comment.json", vec![comment.clone()])
+    ///   .await?;
+    ///   # Ok(())
+    ///   # }
+    ///
+    /// ```
     #[allow(dead_code)]
-    pub async fn add_instance(
+    pub async fn add_instance<N>(
         &self,
-        name: &str,
+        name: N,
         file_path: &str,
         entities: Vec<Entity>,
-    ) -> Result<&Self, Error> {
+    ) -> Result<&Self, Error>
+    where
+        N: Into<Name> + Copy,
+    {
         debug!("Adding instance");
-        let name = Name::from(name);
         let mut db = self.db.write().await;
-        db.add_instance(name.clone(), file_path, entities);
-        db.load_instance(&name)?;
+        db.add_instance(&name.into(), file_path, entities);
+        db.load_instance(&name.into())?;
         Ok(self)
     }
 
     /// Insert a single value into the database.
     /// Passing a transaction will queue the operation to be executed later and
     /// requires you to commit the transaction.
+    ///
+    /// ```rust,no_run
+    /// # use deeb::*;
+    /// # use anyhow::Error;
+    /// # use serde_json::json;
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Error> {
+    /// # let user = Entity::from("user");
+    /// # let db = Deeb::new();
+    /// db.insert(&user, json!({"id": 1, "name": "Joey", "age": 10}), None).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     #[allow(dead_code)]
     pub async fn insert(
         &self,
@@ -72,6 +116,20 @@ impl Deeb {
     /// Insert multiple values into the database.
     /// Passing a transaction will queue the operation to be executed later and
     /// requires you to commit the transaction.
+    ///
+    /// ```rust,no_run
+    /// # use deeb::*;
+    /// # use anyhow::Error;
+    /// # use serde_json::json;
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Error> {
+    /// # let user = Entity::from("user");
+    /// # let db = Deeb::new();
+    /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
+    /// db.insert_many(&user, vec![json!({"id": 1, "name": "Joey", "age": 10}), json!({"id": 2, "name": "Steve", "age": 3})], None).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     #[allow(dead_code)]
     pub async fn insert_many(
         &self,
@@ -99,6 +157,20 @@ impl Deeb {
     /// Find a single value in the database.
     /// Passing a transaction will queue the operation to be executed later and
     /// requires you to commit the transaction.
+    ///
+    /// ```
+    /// # use deeb::*;
+    /// # use anyhow::Error;
+    /// # use serde_json::json;
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Error> {
+    /// # let user = Entity::from("user");
+    /// # let db = Deeb::new();
+    /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
+    /// db.find_one(&user, Query::eq("name", "Joey"), None).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     #[allow(dead_code)]
     pub async fn find_one(
         &self,
@@ -125,6 +197,20 @@ impl Deeb {
     /// Find multiple values in the database.
     /// Passing a transaction will queue the operation to be executed later and
     /// requires you to commit the transaction.
+    ///
+    /// ```rust,no_run
+    /// # use deeb::*;
+    /// # use anyhow::Error;
+    /// # use serde_json::json;
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Error> {
+    /// # let user = Entity::from("user");
+    /// # let db = Deeb::new();
+    /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
+    /// db.find_many(&user, Query::eq("age", 10), None).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     #[allow(dead_code)]
     pub async fn find_many(
         &self,
@@ -151,6 +237,19 @@ impl Deeb {
     /// Delete a single value from the database.
     /// Passing a transaction will queue the operation to be executed later and
     /// requires you to commit the transaction.
+    ///
+    /// ```rust,no_run
+    /// # use deeb::*;
+    /// # use anyhow::Error;
+    /// # use serde_json::json;
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Error> {
+    /// # let user = Entity::from("user");
+    /// # let db = Deeb::new();
+    /// db.delete_one(&user, Query::eq("name", "Joey"), None).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     #[allow(dead_code)]
     pub async fn delete_one(
         &self,
@@ -179,6 +278,19 @@ impl Deeb {
     /// Delete multiple values from the database.
     /// Passing a transaction will queue the operation to be executed later and
     /// requires you to commit the transaction.
+    ///
+    /// ```rust,no_run
+    /// # use deeb::*;
+    /// # use anyhow::Error;
+    /// # use serde_json::json;
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Error> {
+    /// # let user = Entity::from("user");
+    /// # let db = Deeb::new();
+    /// db.delete_many(&user, Query::eq("age", 10), None).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     #[allow(dead_code)]
     pub async fn delete_many(
         &self,
@@ -207,6 +319,19 @@ impl Deeb {
     /// Update a single value in the database.
     /// Passing a transaction will queue the operation to be executed later and
     /// requires you to commit the transaction.
+    ///
+    /// ```rust,no_run
+    /// # use deeb::*;
+    /// # use anyhow::Error;
+    /// # use serde_json::json;
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Error> {
+    /// # let user = Entity::from("user");
+    /// # let db = Deeb::new();
+    /// db.update_one(&user, Query::eq("age", 10), json!({"age": 3}), None).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     #[allow(dead_code)]
     pub async fn update_one(
         &self,
@@ -237,6 +362,19 @@ impl Deeb {
     /// Update multiple values in the database.
     /// Passing a transaction will queue the operation to be executed later and
     /// requires you to commit the transaction.
+    ///
+    /// ```rust,no_run
+    /// # use deeb::*;
+    /// # use anyhow::Error;
+    /// # use serde_json::json;
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Error> {
+    /// # let user = Entity::from("user");
+    /// # let db = Deeb::new();
+    /// db.update_many(&user, Query::eq("age", 10), json!({"age": 3}), None).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     #[allow(dead_code)]
     pub async fn update_many(
         &self,
@@ -266,6 +404,18 @@ impl Deeb {
 
     // Handle Transaction
     /// Begin a new transaction.
+    ///
+    /// ```
+    /// # use deeb::*;
+    /// # use anyhow::Error;
+    /// # use serde_json::json;
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Error> {
+    /// # let db = Deeb::new();
+    /// let mut transaction = db.begin_transaction().await;
+    /// # Ok(())
+    /// # }
+    /// ```
     #[allow(dead_code)]
     pub async fn begin_transaction(&self) -> Transaction {
         debug!("Beginning transaction");
@@ -274,6 +424,22 @@ impl Deeb {
 
     /// Commit a transaction. Once a transaction is committed, all operations will be executed and
     /// the JSON file will be updated.
+    ///
+    /// ```rust,no_run
+    /// # use deeb::*;
+    /// # use anyhow::Error;
+    /// # use serde_json::json;
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Error> {
+    /// # let user = Entity::from("user");
+    /// # let db = Deeb::new();
+    /// let mut transaction = db.begin_transaction().await;
+    /// db.insert(&user, json!({"id": 1, "name": "Steve", "age": 3}), Some(&mut transaction)).await?;
+    /// db.insert(&user, json!({"id": 2, "name": "Johnny", "age": 3}), Some(&mut transaction)).await?;
+    /// db.commit(&mut transaction).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     #[allow(dead_code)]
     pub async fn commit(&self, transaction: &mut Transaction) -> Result<(), Error> {
         debug!("Committing transaction");

@@ -1,6 +1,6 @@
 [package]
 name = "deeb"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2021"
 license = "MIT"
 description = "An ACID compliant JSON database built with Rust"

@@ -6,8 +6,11 @@ websites and fast prototyping.
 Inspired by flexibility of Mongo and light weight of SqLite, Deeb is a tool 
 that turns a set of JSON files into a database. 
 
-While performing migrations will be possible, Deeb's JSON database
-allows you to simply open a json file and edit as needed.
+Deeb's ability to turn groups JSON files into database allows you to simply 
+open a json file and edit as needed.
+
+Check out the quick start below, or the [docs](https://docs.rs/deeb/latest/deeb/) 
+to learn more.
 
  ## Quick Start
 
@@ -20,18 +23,19 @@ use anyhow::Error;
 async fn main() -> Result<(), Error> {
      // Set up a new Deeb instance
     let db = Deeb::new();
-    db.add_instance("test", "./user.json", vec!["user".into()])
-        .await?;
-    db.add_instance("test2", "./comment.json", vec!["comment".into()])
-        .await?;
 
     // Create a new entity
     let user = Entity::from("user");
     let comment = Entity::from("comment");
 
+    db.add_instance("test", "./user.json", vec![user.clone()])
+        .await?;
+    db.add_instance("test2", "./comment.json", vec![comment.clone()])
+        .await?;
+
     // Single Operations
     db.insert(&user, json!({"id": 1, "name": "Joey", "age": 10}), None).await?;
-    db.find_one(&user, Query::Eq("name".into(), json!("Joey")), None).await?;
+    db.find_one(&user, Query::eq("name", "Joey"), None).await?;
 
     // Perform a transaction
     let mut transaction = db.begin_transaction().await;
@@ -44,16 +48,16 @@ async fn main() -> Result<(), Error> {
     db.insert(&comment, json!({"user_id": 1, "comment": "Hi"}), Some(&mut transaction)).await?;
 
     // Query the database
-    let query = Query::Eq("name".into(), json!("Steve"));
+    let query = Query::like("name", "Steve");
     let result = db.find_one(&user, query, Some(&mut transaction)).await?;
 
     // Update the database
-    let query = Query::Eq("name".into(), json!("Steve"));
+    let query = Query::ne("name", "Steve");
     let update = json!({"name": "Steve", "age": 3});
     db.update_one(&user, query, update, Some(&mut transaction)).await?;
 
     // Delete from the database
-    let query = Query::Eq("name".into(), json!("Johnny"));
+    let query = Query::eq("name", "Johnny");
     db.delete_one(&user, query, Some(&mut transaction)).await?;
 
     db.commit(&mut transaction).await?;
@@ -61,4 +65,27 @@ async fn main() -> Result<(), Error> {
     Ok(())
 }
 ```
+
+## Features
+
+- **ACID Compliant**: Deeb is an ACID compliant database
+- **JSON Based**: Deeb uses JSON files as the database
+- **Schemaless**: Deeb is schemaless
+- **Transactions**: Deeb supports transactions
+- **Querying**: Deeb supports querying, nested queries, and combination queries.
+
+## Roadmap
+
+- [x] Basic CRUD Operations
+- [x] Transactions
+- [ ] Indexing
+- [x] Querying
+- [ ] Migrations
+- [x] Benchmarks
+- [x] Documentation
+- [x] Tests
+- [ ] Examples
+- [ ] Logging
+- [ ] Error Handling
+- [ ] CI/CD
 
