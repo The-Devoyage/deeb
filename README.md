@@ -6,7 +6,7 @@ websites and fast prototyping.
 Inspired by flexibility of Mongo and light weight of SqLite, Deeb is a tool 
 that turns a set of JSON files into a database. 
 
-Deeb's ability to turn groups JSON files into database allows you to simply 
+Deeb's ability to turn groups JSON files into a database allows you to simply 
 open a json file and edit as needed.
 
 Check out the quick start below, or the [docs](https://docs.rs/deeb/latest/deeb/) 
