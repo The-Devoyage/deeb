@@ -1,5 +1,12 @@
 # Deeb Changelog
 
+## v0.0.3
+
+### Added
+
+- Drop Key - Removes a key from every entity, if exists.
+- Add Key - Add a key with a default value to every entity.
+
 ## v0.0.2
 
 ### Changed
