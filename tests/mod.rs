@@ -4,33 +4,46 @@ use serde_json::json;
 
 async fn spawn_deeb() -> Result<Deeb, Error> {
     let db = Deeb::new();
-    let user = Entity::from("user");
+    let user = Entity::new("user");
+    let comment = Entity::new("comment");
 
-    db.add_instance("test", "./tests/test.json", vec![user.clone()])
-        .await?;
+    db.add_instance(
+        "user",
+        "./tests/test.json",
+        vec![user.clone(), comment.clone()],
+    )
+    .await?;
 
     db.delete_many(&user, Query::All, None).await?;
 
     // Populate initial data
-    db.insert(&user, json!({"name": "oliver", "age": 0.5}), None)
+    db.insert(&user, json!({"id": 1, "name": "oliver", "age": 0.5}), None)
         .await?;
-    db.insert(&user, json!({"name": "magnolia", "age": 0.5}), None)
+    db.insert(
+        &user,
+        json!({"id": 2, "name": "magnolia", "age": 0.5}),
+        None,
+    )
+    .await?;
+    db.insert(&user, json!({"id": 3, "name": "olliard", "age": 0.5}), None)
         .await?;
-    db.insert(&user, json!({"name": "olliard", "age": 0.5}), None)
-        .await?;
-    Ok(db)
-}
 
-#[tokio::test]
-async fn test_new_entity() {
-    let entity = Entity::from("test");
-    assert_eq!(entity, Entity("test".to_string()));
+    db.insert(&comment, json!({"user_id": 1, "comment": "Hello"}), None)
+        .await?;
+    db.insert(&comment, json!({"user_id": 1, "comment": "Hi"}), None)
+        .await?;
+    db.insert(&comment, json!({"user_id": 2, "comment": "Hey"}), None)
+        .await?;
+    db.insert(&comment, json!({"user_id": 3, "comment": "Hola"}), None)
+        .await?;
+
+    Ok(db)
 }
 
 #[tokio::test]
 async fn insert_one() -> Result<(), Error> {
     let db = spawn_deeb().await?;
-    let entity = Entity::from("user");
+    let entity = Entity::new("user");
     let value = json!({"name": "nick", "age": 35});
     let result = db.insert(&entity, value, None).await?;
     assert_eq!(result, json!({"name": "nick", "age": 35}));
@@ -40,7 +53,7 @@ async fn insert_one() -> Result<(), Error> {
 #[tokio::test]
 async fn insert_many() -> Result<(), Error> {
     let db = spawn_deeb().await?;
-    let entity = Entity::from("user");
+    let entity = Entity::new("user");
     let values = vec![
         json!({"name": "jack", "age": 21}),
         json!({"name": "jull", "age": 20}),
@@ -59,23 +72,23 @@ async fn insert_many() -> Result<(), Error> {
 #[tokio::test]
 async fn find_one() -> Result<(), Error> {
     let db = spawn_deeb().await?;
-    let entity = Entity::from("user");
+    let entity = Entity::new("user");
     let query = Query::eq("name", "oliver");
     let result = db.find_one(&entity, query, None).await?;
-    assert_eq!(result, json!({"name": "oliver", "age": 0.5}));
+    assert_eq!(result, json!({"id": 1,"name": "oliver", "age": 0.5}));
     Ok(())
 }
 
 #[tokio::test]
 async fn find_many() -> Result<(), Error> {
     let db = spawn_deeb().await?;
-    let entity = Entity::from("user");
+    let entity = Entity::new("user");
     let query = Query::eq("age", 0.5);
     let result = db.find_many(&entity, query, None).await?;
     assert!(
-        result.contains(&json!({"name": "oliver", "age": 0.5}))
-            && result.contains(&json!({"name": "magnolia", "age": 0.5}))
-            && result.contains(&json!({"name": "olliard", "age": 0.5}))
+        result.contains(&json!({"id": 1, "name": "oliver", "age": 0.5}))
+            && result.contains(&json!({"id": 2,"name": "magnolia", "age": 0.5}))
+            && result.contains(&json!({"id": 3,"name": "olliard", "age": 0.5}))
     );
     Ok(())
 }
@@ -83,23 +96,23 @@ async fn find_many() -> Result<(), Error> {
 #[tokio::test]
 async fn delete_one() -> Result<(), Error> {
     let db = spawn_deeb().await?;
-    let entity = Entity::from("user");
+    let entity = Entity::new("user");
     let query = Query::eq("name", "oliver");
     let result = db.delete_one(&entity, query, None).await?;
-    assert_eq!(result, json!({"name": "oliver", "age": 0.5}));
+    assert_eq!(result, json!({"id": 1, "name": "oliver", "age": 0.5}));
     Ok(())
 }
 
 #[tokio::test]
 async fn delete_many() -> Result<(), Error> {
     let db = spawn_deeb().await?;
-    let entity = Entity::from("user");
+    let entity = Entity::new("user");
     let query = Query::eq("age", 0.5);
     let result = db.delete_many(&entity, query, None).await?;
     assert!(
-        result.contains(&json!({"name": "oliver", "age": 0.5}))
-            && result.contains(&json!({"name": "magnolia", "age": 0.5}))
-            && result.contains(&json!({"name": "olliard", "age": 0.5}))
+        result.contains(&json!({"id": 1,"name": "oliver", "age": 0.5}))
+            && result.contains(&json!({"id": 2,"name": "magnolia", "age": 0.5}))
+            && result.contains(&json!({"id": 3,"name": "olliard", "age": 0.5}))
     );
     Ok(())
 }
@@ -107,7 +120,7 @@ async fn delete_many() -> Result<(), Error> {
 #[tokio::test]
 async fn transaction() -> Result<(), Error> {
     let db = spawn_deeb().await?;
-    let entity = Entity::from("user");
+    let entity = Entity::new("user");
     let mut transaction = db.begin_transaction().await;
     db.insert(
         &entity,
@@ -145,25 +158,25 @@ async fn transaction() -> Result<(), Error> {
 #[tokio::test]
 async fn update_one() -> Result<(), Error> {
     let db = spawn_deeb().await?;
-    let entity = Entity::from("user");
+    let entity = Entity::new("user");
     let query = Query::eq("name", "oliver");
     let update = json!({"name": "olivia"});
     let result = db.update_one(&entity, query, update, None).await?;
-    assert_eq!(result, json!({"name": "olivia", "age": 0.5}));
+    assert_eq!(result, json!({"id": 1,"name": "olivia", "age": 0.5}));
     Ok(())
 }
 
 #[tokio::test]
 async fn update_many() -> Result<(), Error> {
     let db = spawn_deeb().await?;
-    let entity = Entity::from("user");
+    let entity = Entity::new("user");
     let query = Query::eq("age", 0.5);
     let update = json!({"age": 1.0});
     let result = db.update_many(&entity, query, update, None).await?;
     assert!(
-        result.contains(&json!({"name": "oliver", "age": 1.0}))
-            && result.contains(&json!({"name": "magnolia", "age": 1.0}))
-            && result.contains(&json!({"name": "olliard", "age": 1.0}))
+        result.contains(&json!({"id": 1,"name": "oliver", "age": 1.0}))
+            && result.contains(&json!({"id": 2,"name": "magnolia", "age": 1.0}))
+            && result.contains(&json!({"id": 3,"name": "olliard", "age": 1.0}))
     );
     Ok(())
 }
@@ -291,18 +304,18 @@ async fn test_all() {
 #[tokio::test]
 async fn drop_key() -> Result<(), Error> {
     let db = spawn_deeb().await?;
-    let entity = Entity::from("user");
+    let entity = Entity::new("user");
     db.drop_key(&entity, "age").await?;
     let query = Query::eq("name", "oliver");
     let result = db.find_one(&entity, query, None).await?;
-    assert_eq!(result, json!({"name": "oliver"}));
+    assert_eq!(result, json!({"id": 1, "name": "oliver"}));
     Ok(())
 }
 
 #[tokio::test]
 async fn drop_key_nested() -> Result<(), Error> {
     let db = spawn_deeb().await?;
-    let entity = Entity::from("user");
+    let entity = Entity::new("user");
     db.delete_many(&entity, Query::All, None).await?;
     db.insert(
         &entity,
@@ -344,13 +357,13 @@ async fn drop_key_nested() -> Result<(), Error> {
 #[tokio::test]
 async fn add_key() -> Result<(), Error> {
     let db = spawn_deeb().await?;
-    let entity = Entity::from("user");
+    let entity = Entity::new("user");
     db.add_key(&entity, "status", true).await?;
     let query = Query::eq("name", "oliver");
     let result = db.find_one(&entity, query, None).await?;
     assert_eq!(
         result,
-        json!({"name": "oliver", "age": 0.5, "status": true})
+        json!({"id": 1, "name": "oliver", "age": 0.5, "status": true})
     );
     Ok(())
 }
@@ -358,8 +371,14 @@ async fn add_key() -> Result<(), Error> {
 #[tokio::test]
 async fn add_key_nested() -> Result<(), Error> {
     let db = spawn_deeb().await?;
-    let entity = Entity::from("user");
+    let entity = Entity::new("user");
     db.delete_many(&entity, Query::All, None).await?;
+    db.insert(
+        &entity,
+        json!({"name": "oliver", "address": {"city": "lagos", "country": "nigeria"}}),
+        None,
+    )
+    .await?;
     db.insert(
         &entity,
         json!({"name": "oliver", "address": {"city": "lagos", "country": "nigeria"}}),

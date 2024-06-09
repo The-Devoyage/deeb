@@ -10,6 +10,8 @@ use std::io::{Read, Write};
 
 use serde_json::{json, Value};
 
+use self::entity::EntityName;
+
 pub mod entity;
 pub mod name;
 pub mod query;
@@ -21,7 +23,7 @@ pub mod transaction;
 pub struct DatabaseInstance {
     file_path: String,
     entities: Vec<Entity>,
-    data: HashMap<Entity, Vec<Value>>,
+    data: HashMap<EntityName, Vec<Value>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -137,7 +139,7 @@ impl Database {
                 let json = Value::Object(
                     entities
                         .iter()
-                        .map(|entity| (entity.0.clone(), Value::Array(Vec::new())))
+                        .map(|entity| (entity.name.to_string().clone(), Value::Array(Vec::new())))
                         .collect(),
                 );
                 file.lock_exclusive()?;
@@ -181,7 +183,10 @@ impl Database {
         let instance = self
             .get_instance_by_entity_mut(entity)
             .ok_or_else(|| Error::msg("Entity not found"))?;
-        let data = instance.data.entry(entity.clone()).or_insert(Vec::new());
+        let data = instance
+            .data
+            .entry(entity.name.clone())
+            .or_insert(Vec::new());
 
         data.push(insert_value.clone());
         Ok(insert_value)
@@ -200,7 +205,10 @@ impl Database {
         let instance = self
             .get_instance_by_entity_mut(entity)
             .ok_or_else(|| Error::msg("Entity not found"))?;
-        let data = instance.data.entry(entity.clone()).or_insert(Vec::new());
+        let data = instance
+            .data
+            .entry(entity.name.clone())
+            .or_insert(Vec::new());
 
         let mut values = vec![];
         for insert_value in insert_values {
@@ -216,7 +224,7 @@ impl Database {
             .ok_or_else(|| Error::msg("Entity not found"))?;
         let data = instance
             .data
-            .get(entity)
+            .get(&entity.name)
             .ok_or_else(|| Error::msg("Data not found"))?;
         let result = data
             .iter()
@@ -232,7 +240,7 @@ impl Database {
             .ok_or_else(|| Error::msg("Entity not found"))?;
         let data = instance
             .data
-            .get(entity)
+            .get(&entity.name)
             .ok_or_else(|| Error::msg("Data not found"))?;
         let result = data
             .iter()
@@ -246,7 +254,7 @@ impl Database {
             .ok_or_else(|| Error::msg("Entity not found"))?;
         let data = instance
             .data
-            .get_mut(entity)
+            .get_mut(&entity.name)
             .ok_or_else(|| Error::msg("Data not found"))?;
         let index = data
             .iter()
@@ -261,7 +269,7 @@ impl Database {
             .ok_or_else(|| Error::msg("Entity not found"))?;
         let data = instance
             .data
-            .get_mut(entity)
+            .get_mut(&entity.name)
             .ok_or_else(|| Error::msg("Data not found"))?;
         let indexes = data
             .iter()
@@ -287,7 +295,7 @@ impl Database {
             .ok_or_else(|| Error::msg("Entity not found"))?;
         let data = instance
             .data
-            .get_mut(entity)
+            .get_mut(&entity.name)
             .ok_or_else(|| Error::msg("Data not found"))?;
         let index = data
             .iter()
@@ -326,7 +334,7 @@ impl Database {
             .ok_or_else(|| Error::msg("Entity not found"))?;
         let data = instance
             .data
-            .get_mut(entity)
+            .get_mut(&entity.name)
             .ok_or_else(|| Error::msg("Data not found"))?;
         let indexes = data
             .iter()
@@ -385,7 +393,7 @@ impl Database {
             .ok_or_else(|| Error::msg("Entity not found"))?;
         let data = instance
             .data
-            .get_mut(entity)
+            .get_mut(&entity.name)
             .ok_or_else(|| Error::msg("Data not found"))?;
         // Iterate through the entities
         for value in data.iter_mut() {
@@ -441,7 +449,7 @@ impl Database {
             .ok_or_else(|| Error::msg("Entity not found"))?;
         let data = instance
             .data
-            .get_mut(entity)
+            .get_mut(&entity.name)
             .ok_or_else(|| Error::msg("Data not found"))?;
         for current in data.iter_mut() {
             let keys = key.split('.').collect::<Vec<&str>>();

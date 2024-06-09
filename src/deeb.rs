@@ -57,8 +57,8 @@ impl Deeb {
     /// # use serde_json::json;
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Error> {
-    ///   # let user = Entity::from("user");
-    ///   # let comment = Entity::from("comment");
+    ///   # let user = Entity::new("user");
+    ///   # let comment = Entity::new("comment");
     ///   # let db = Deeb::new();
     ///   db.add_instance("test", "./user.json", vec![user.clone()])
     ///   .await?;
@@ -95,7 +95,7 @@ impl Deeb {
     /// # use serde_json::json;
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Error> {
-    /// # let user = Entity::from("user");
+    /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
     /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
     /// db.insert(&user, json!({"id": 1, "name": "Joey", "age": 10}), None).await?;
@@ -136,7 +136,7 @@ impl Deeb {
     /// # use serde_json::json;
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Error> {
-    /// # let user = Entity::from("user");
+    /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
     /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
     /// db.insert_many(&user, vec![json!({"id": 1, "name": "Joey", "age": 10}), json!({"id": 2, "name": "Steve", "age": 3})], None).await?;
@@ -177,7 +177,7 @@ impl Deeb {
     /// # use serde_json::json;
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Error> {
-    /// # let user = Entity::from("user");
+    /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
     /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
     /// # db.insert(&user, json!({"id": 1, "name": "Joey", "age": 10}), None).await?;
@@ -218,7 +218,7 @@ impl Deeb {
     /// # use serde_json::json;
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Error> {
-    /// # let user = Entity::from("user");
+    /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
     /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
     /// # db.insert(&user, json!({"id": 1, "name": "Joey", "age": 10}), None).await?;
@@ -259,7 +259,7 @@ impl Deeb {
     /// # use serde_json::json;
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Error> {
-    /// # let user = Entity::from("user");
+    /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
     /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
     /// # db.insert(&user, json!({"id": 1, "name": "Joey", "age": 10}), None).await?;
@@ -302,7 +302,7 @@ impl Deeb {
     /// # use serde_json::json;
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Error> {
-    /// # let user = Entity::from("user");
+    /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
     /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
     /// db.delete_many(&user, Query::eq("age", 10), None).await?;
@@ -344,7 +344,7 @@ impl Deeb {
     /// # use serde_json::json;
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Error> {
-    /// # let user = Entity::from("user");
+    /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
     /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
     /// # db.insert(&user, json!({"id": 1, "name": "Joey", "age": 10}), None).await?;
@@ -389,7 +389,7 @@ impl Deeb {
     /// # use serde_json::json;
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Error> {
-    /// # let user = Entity::from("user");
+    /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
     /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
     /// # db.update_many(&user, Query::eq("age", 10), json!({"age": 3}), None).await?;
@@ -453,7 +453,7 @@ impl Deeb {
     /// # use serde_json::json;
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Error> {
-    /// # let user = Entity::from("user");
+    /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
     /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
     /// let mut transaction = db.begin_transaction().await;
@@ -611,7 +611,7 @@ impl Deeb {
     /// # use serde_json::json;
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Error> {
-    /// # let user = Entity::from("user");
+    /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
     /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
     /// # db.insert(&user, json!({"id": 1, "name": "Joey", "age": 10}), None).await?;
@@ -651,7 +651,7 @@ impl Deeb {
     /// # use serde_json::json;
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Error> {
-    /// # let user = Entity::from("user");
+    /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
     /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
     /// db.add_key(&user, "age", 10).await?;

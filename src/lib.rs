@@ -30,8 +30,8 @@
 //! #[tokio::main]
 //! async fn main() -> Result<(), Error> {
 //!    // Create a new entity
-//!    let user = Entity::from("user");
-//!    let comment = Entity::from("comment");
+//!    let user = Entity::new("user");
+//!    let comment = Entity::new("comment");
 //!
 //!     // Set up a new Deeb instance
 //!    let db = Deeb::new();
