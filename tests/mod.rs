@@ -287,3 +287,91 @@ async fn test_all() {
     let value = json!({"name": "nick", "age": 35});
     assert!(query.matches(&value).unwrap());
 }
+
+#[tokio::test]
+async fn drop_key() -> Result<(), Error> {
+    let db = spawn_deeb().await?;
+    let entity = Entity::from("user");
+    db.drop_key(&entity, "age").await?;
+    let query = Query::eq("name", "oliver");
+    let result = db.find_one(&entity, query, None).await?;
+    assert_eq!(result, json!({"name": "oliver"}));
+    Ok(())
+}
+
+#[tokio::test]
+async fn drop_key_nested() -> Result<(), Error> {
+    let db = spawn_deeb().await?;
+    let entity = Entity::from("user");
+    db.delete_many(&entity, Query::All, None).await?;
+    db.insert(
+        &entity,
+        json!({
+        "name": "oliver",
+        "address": {
+            "city": "lagos",
+            "country": "nigeria",
+            "meta": {"zip": 10001, "additional": "info"}
+        }}),
+        None,
+    )
+    .await?;
+    db.insert(
+        &entity,
+        json!({
+        "name": "olivia",
+        "address": {
+            "city": "lagos",
+            "country": "nigeria",
+            "meta": {"zip": 10001, "secondary": "info"}
+        }}),
+        None,
+    )
+    .await?;
+    db.drop_key(&entity, "address.meta.additional").await?;
+    let query = Query::eq("address.country", "nigeria");
+    let result = db.find_one(&entity, query, None).await?;
+    let result = result.as_object().unwrap();
+    let address = result.get("address").unwrap().as_object().unwrap();
+    let meta = address.get("meta").unwrap().as_object().unwrap();
+    assert_eq!(meta.get("additional"), None);
+    Ok(())
+}
+
+// Test removing key from nested object that does not have nested paths
+// TODO: Should skip the operation for that record
+
+#[tokio::test]
+async fn add_key() -> Result<(), Error> {
+    let db = spawn_deeb().await?;
+    let entity = Entity::from("user");
+    db.add_key(&entity, "status", true).await?;
+    let query = Query::eq("name", "oliver");
+    let result = db.find_one(&entity, query, None).await?;
+    assert_eq!(
+        result,
+        json!({"name": "oliver", "age": 0.5, "status": true})
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn add_key_nested() -> Result<(), Error> {
+    let db = spawn_deeb().await?;
+    let entity = Entity::from("user");
+    db.delete_many(&entity, Query::All, None).await?;
+    db.insert(
+        &entity,
+        json!({"name": "oliver", "address": {"city": "lagos", "country": "nigeria"}}),
+        None,
+    )
+    .await?;
+    db.insert(&entity, json!({"name": "olivia" }), None).await?;
+    db.add_key(&entity, "address.zip", 10001).await?;
+    let query = Query::eq("address.zip", 10001);
+    let result = db.find_one(&entity, query, None).await?;
+    let result = result.as_object().unwrap();
+    let address = result.get("address").unwrap().as_object().unwrap();
+    assert_eq!(address.get("zip"), Some(&json!(10001)));
+    Ok(())
+}

@@ -1,5 +1,4 @@
 //! # Deeb
-//! Prounced `D-B`, Deeb is an Acid Compliant JSON based database for small
 //! websites and fast prototyping.
 //! Inspired by flexibility of Mongo and light weight of SqLite, Deeb is a tool
 //! that turns a set of JSON files into a database.
@@ -8,6 +7,20 @@
 //! allows you to simply open a json file and edit as needed.
 //!
 //! ## Quick Start
+//!
+//! 1. Add Deeb to your `Cargo.toml` file
+//! ```bash
+//! cargo add deeb
+//! ```
+//!
+//! 2. Create a JSON file for your database.
+//!
+//! ```bash
+//! echo '{"user": []}' > user.json
+//! echo '{"comment": []}' > comment.json
+//! ```
+//!
+//! 3. Create a deed instance and perform operations
 //!
 //! ```rust
 //! use deeb::*;
@@ -76,6 +89,7 @@
 //! - [x] Querying
 //! - [ ] Migrations
 //! - [x] Benchmarks
+//! - [ ] Associations
 //! - [x] Documentation
 //! - [x] Tests
 //! - [ ] Examples
@@ -111,6 +125,11 @@
 //!
 //! - `begin_transaction`: [Begin](deeb::Deeb::begin_transaction) a new transaction
 //! - `commit`: [Commit](deeb::Deeb::commit) a transaction
+//!
+//! ### Data Management
+//!
+//! - `add_key` : [Add a new key](deeb::Deeb::add_key) to the database
+//! - `drop_key` : [Drop a key](deeb::Deeb::drop_key) from the database
 
 mod database;
 mod deeb;

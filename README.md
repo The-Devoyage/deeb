@@ -12,7 +12,22 @@ open a json file and edit as needed.
 Check out the quick start below, or the [docs](https://docs.rs/deeb/latest/deeb/) 
 to learn more.
 
- ## Quick Start
+## Quick Start
+
+1. Add Deeb to your `Cargo.toml` file
+
+```bash
+cargo add deeb
+```
+
+2. Create a JSON file for your database.
+
+```bash
+echo '{"user": []}' > user.json
+echo '{"comment": []}' > comment.json
+```
+
+3. Create a deed instance and perform operations
 
 ```rust
 use deeb::*;
@@ -82,6 +97,7 @@ async fn main() -> Result<(), Error> {
 - [x] Querying
 - [ ] Migrations
 - [x] Benchmarks
+- [ ] Associations
 - [x] Documentation
 - [x] Tests
 - [ ] Examples

@@ -1,13 +1,14 @@
 use anyhow::Error;
 use entity::Entity;
 use fs2::FileExt;
+use log::*;
 use name::Name;
 use query::Query;
 use std::collections::HashMap;
 use std::fs::{self, OpenOptions};
 use std::io::{Read, Write};
 
-use serde_json::Value;
+use serde_json::{json, Value};
 
 pub mod entity;
 pub mod name;
@@ -33,6 +34,8 @@ pub enum ExecutedValue {
     DeletedMany(Vec<Value>),
     UpdatedOne(Value),
     UpdatedMany(Vec<Value>),
+    DroppedKey,
+    AddedKey,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -69,6 +72,15 @@ pub enum Operation {
     UpdateMany {
         entity: Entity,
         query: Query,
+        value: Value,
+    },
+    DropKey {
+        entity: Entity,
+        key: String,
+    },
+    AddKey {
+        entity: Entity,
+        key: String,
         value: Value,
     },
 }
@@ -129,6 +141,7 @@ impl Database {
                         .collect(),
                 );
                 file.lock_exclusive()?;
+                instance.data = serde_json::from_slice(serde_json::to_string(&json)?.as_bytes())?;
                 file.write_all(serde_json::to_string(&json)?.as_bytes())?;
                 file.unlock()?;
             }
@@ -361,6 +374,97 @@ impl Database {
             file.set_len(0)?;
             file.write_all(serde_json::to_string(&instance.data)?.as_bytes())?;
             file.unlock()?;
+        }
+        Ok(())
+    }
+
+    // Management
+    pub fn drop_key(&mut self, entity: &Entity, key: &str) -> Result<(), Error> {
+        let instance = self
+            .get_instance_by_entity_mut(entity)
+            .ok_or_else(|| Error::msg("Entity not found"))?;
+        let data = instance
+            .data
+            .get_mut(entity)
+            .ok_or_else(|| Error::msg("Data not found"))?;
+        // Iterate through the entities
+        for value in data.iter_mut() {
+            match value {
+                Value::Object(value) => {
+                    if key.contains('.') {
+                        let keys = key.split('.').collect::<Vec<&str>>();
+                        let mut current = value.clone();
+                        let mut key_exists = true;
+                        for key in keys.iter().take(keys.len() - 1) {
+                            current = match current.get_mut(*key) {
+                                Some(Value::Object(current)) => current.clone(),
+                                _ => {
+                                    key_exists = false;
+                                    break;
+                                }
+                            };
+                        }
+                        if key_exists {
+                            let mut current = value;
+                            for key in keys.iter().take(keys.len() - 1) {
+                                current = match current.get_mut(*key) {
+                                    Some(Value::Object(current)) => current,
+                                    _ => {
+                                        error!("Value must be a JSON object");
+                                        return Err(Error::msg("Value must be a JSON object"));
+                                    }
+                                };
+                            }
+                            let key = keys.last().unwrap().to_owned();
+                            current.remove(key);
+                        } else {
+                            continue;
+                        }
+                    } else {
+                        value.remove(key);
+                    }
+                }
+                _ => return Err(Error::msg("Value must be a JSON object")),
+            }
+        }
+        Ok(())
+    }
+
+    pub fn add_key(
+        &mut self,
+        entity: &Entity,
+        key: &str,
+        default_value: Value,
+    ) -> Result<(), Error> {
+        let instance = self
+            .get_instance_by_entity_mut(entity)
+            .ok_or_else(|| Error::msg("Entity not found"))?;
+        let data = instance
+            .data
+            .get_mut(entity)
+            .ok_or_else(|| Error::msg("Data not found"))?;
+        for current in data.iter_mut() {
+            let keys = key.split('.').collect::<Vec<&str>>();
+            let mut json = json!({});
+            let mut current = current;
+            for key in keys.iter().take(keys.len() - 1) {
+                json.as_object_mut()
+                    .unwrap()
+                    .insert(key.to_string(), json!({}));
+                let has_key = current.as_object().unwrap().contains_key(*key);
+                if !has_key {
+                    current
+                        .as_object_mut()
+                        .unwrap()
+                        .insert(key.to_string(), json!({}));
+                }
+                current = current.get_mut(*key).unwrap();
+            }
+            let key = keys.last().unwrap().to_owned();
+            current
+                .as_object_mut()
+                .unwrap()
+                .insert(key.to_string(), default_value.clone());
         }
         Ok(())
     }

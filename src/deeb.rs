@@ -16,7 +16,7 @@ pub struct Deeb {
 impl Deeb {
     /// Create a new Deeb instance.
     ///
-    /// ```rust,no_run
+    /// ```
     /// # use deeb::*;
     /// # use anyhow::Error;
     /// # use serde_json::json;
@@ -39,7 +39,19 @@ impl Deeb {
     /// is a JSON file that may have one or more entities. You can add multiple instances
     /// to the database allowing you to segment your data between different files.
     ///
-    /// ```rust,no_run
+    /// If the file does not exist, it will be created.
+    ///
+    /// The structure of the JSON file should be as follows:
+    ///
+    /// ```json
+    /// {
+    ///     "entity_name": [{...}, {...}],
+    ///     "another_entity": [{...}, {...}]
+    ///     ...
+    /// }
+    /// ```
+    ///
+    /// ```
     /// # use deeb::*;
     /// # use anyhow::Error;
     /// # use serde_json::json;
@@ -77,7 +89,7 @@ impl Deeb {
     /// Passing a transaction will queue the operation to be executed later and
     /// requires you to commit the transaction.
     ///
-    /// ```rust,no_run
+    /// ```
     /// # use deeb::*;
     /// # use anyhow::Error;
     /// # use serde_json::json;
@@ -85,6 +97,7 @@ impl Deeb {
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::from("user");
     /// # let db = Deeb::new();
+    /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
     /// db.insert(&user, json!({"id": 1, "name": "Joey", "age": 10}), None).await?;
     /// # Ok(())
     /// # }
@@ -117,7 +130,7 @@ impl Deeb {
     /// Passing a transaction will queue the operation to be executed later and
     /// requires you to commit the transaction.
     ///
-    /// ```rust,no_run
+    /// ```
     /// # use deeb::*;
     /// # use anyhow::Error;
     /// # use serde_json::json;
@@ -167,6 +180,7 @@ impl Deeb {
     /// # let user = Entity::from("user");
     /// # let db = Deeb::new();
     /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
+    /// # db.insert(&user, json!({"id": 1, "name": "Joey", "age": 10}), None).await?;
     /// db.find_one(&user, Query::eq("name", "Joey"), None).await?;
     /// # Ok(())
     /// # }
@@ -198,7 +212,7 @@ impl Deeb {
     /// Passing a transaction will queue the operation to be executed later and
     /// requires you to commit the transaction.
     ///
-    /// ```rust,no_run
+    /// ```
     /// # use deeb::*;
     /// # use anyhow::Error;
     /// # use serde_json::json;
@@ -207,6 +221,7 @@ impl Deeb {
     /// # let user = Entity::from("user");
     /// # let db = Deeb::new();
     /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
+    /// # db.insert(&user, json!({"id": 1, "name": "Joey", "age": 10}), None).await?;
     /// db.find_many(&user, Query::eq("age", 10), None).await?;
     /// # Ok(())
     /// # }
@@ -238,7 +253,7 @@ impl Deeb {
     /// Passing a transaction will queue the operation to be executed later and
     /// requires you to commit the transaction.
     ///
-    /// ```rust,no_run
+    /// ```
     /// # use deeb::*;
     /// # use anyhow::Error;
     /// # use serde_json::json;
@@ -246,6 +261,8 @@ impl Deeb {
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::from("user");
     /// # let db = Deeb::new();
+    /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
+    /// # db.insert(&user, json!({"id": 1, "name": "Joey", "age": 10}), None).await?;
     /// db.delete_one(&user, Query::eq("name", "Joey"), None).await?;
     /// # Ok(())
     /// # }
@@ -279,7 +296,7 @@ impl Deeb {
     /// Passing a transaction will queue the operation to be executed later and
     /// requires you to commit the transaction.
     ///
-    /// ```rust,no_run
+    /// ```
     /// # use deeb::*;
     /// # use anyhow::Error;
     /// # use serde_json::json;
@@ -287,6 +304,7 @@ impl Deeb {
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::from("user");
     /// # let db = Deeb::new();
+    /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
     /// db.delete_many(&user, Query::eq("age", 10), None).await?;
     /// # Ok(())
     /// # }
@@ -320,7 +338,7 @@ impl Deeb {
     /// Passing a transaction will queue the operation to be executed later and
     /// requires you to commit the transaction.
     ///
-    /// ```rust,no_run
+    /// ```
     /// # use deeb::*;
     /// # use anyhow::Error;
     /// # use serde_json::json;
@@ -328,6 +346,8 @@ impl Deeb {
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::from("user");
     /// # let db = Deeb::new();
+    /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
+    /// # db.insert(&user, json!({"id": 1, "name": "Joey", "age": 10}), None).await?;
     /// db.update_one(&user, Query::eq("age", 10), json!({"age": 3}), None).await?;
     /// # Ok(())
     /// # }
@@ -363,7 +383,7 @@ impl Deeb {
     /// Passing a transaction will queue the operation to be executed later and
     /// requires you to commit the transaction.
     ///
-    /// ```rust,no_run
+    /// ```
     /// # use deeb::*;
     /// # use anyhow::Error;
     /// # use serde_json::json;
@@ -371,6 +391,8 @@ impl Deeb {
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::from("user");
     /// # let db = Deeb::new();
+    /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
+    /// # db.update_many(&user, Query::eq("age", 10), json!({"age": 3}), None).await?;
     /// db.update_many(&user, Query::eq("age", 10), json!({"age": 3}), None).await?;
     /// # Ok(())
     /// # }
@@ -425,7 +447,7 @@ impl Deeb {
     /// Commit a transaction. Once a transaction is committed, all operations will be executed and
     /// the JSON file will be updated.
     ///
-    /// ```rust,no_run
+    /// ```
     /// # use deeb::*;
     /// # use anyhow::Error;
     /// # use serde_json::json;
@@ -433,6 +455,7 @@ impl Deeb {
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::from("user");
     /// # let db = Deeb::new();
+    /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
     /// let mut transaction = db.begin_transaction().await;
     /// db.insert(&user, json!({"id": 1, "name": "Steve", "age": 3}), Some(&mut transaction)).await?;
     /// db.insert(&user, json!({"id": 2, "name": "Johnny", "age": 3}), Some(&mut transaction)).await?;
@@ -479,6 +502,12 @@ impl Deeb {
                 } => db
                     .update_many(&entity, query.clone(), value.clone())
                     .map(|values| (operation.clone(), ExecutedValue::UpdatedMany(values))),
+                Operation::DropKey { entity, key } => db
+                    .drop_key(&entity, &key)
+                    .map(|_value| (operation.clone(), ExecutedValue::DroppedKey)),
+                Operation::AddKey { entity, key, value } => db
+                    .add_key(&entity, &key, value.clone())
+                    .map(|_value| (operation.clone(), ExecutedValue::AddedKey)),
             };
             trace!("Executed operation: {:?}", operation);
 
@@ -569,6 +598,91 @@ impl Deeb {
             }
         }
         trace!("Rolled back operations");
+        Ok(())
+    }
+
+    // Management
+
+    /// Delete Key
+    ///
+    /// ```
+    /// # use deeb::*;
+    /// # use anyhow::Error;
+    /// # use serde_json::json;
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Error> {
+    /// # let user = Entity::from("user");
+    /// # let db = Deeb::new();
+    /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
+    /// # db.insert(&user, json!({"id": 1, "name": "Joey", "age": 10}), None).await?;
+    /// db.drop_key(&user, "age").await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[allow(dead_code)]
+    pub async fn drop_key(
+        &self,
+        entity: &Entity,
+        key: &str,
+        // transaction: Option<&mut Transaction>,
+    ) -> Result<(), Error> {
+        debug!("Deleting key");
+        // if let Some(transaction) = transaction {
+        //     let operation = Operation::DropKey {
+        //         entity: entity.clone(),
+        //         key: key.to_string(),
+        //     };
+        //     transaction.add_operation(operation);
+        //     return Ok(());
+        // }
+
+        let mut db = self.db.write().await;
+        db.drop_key(entity, key)?;
+        let name = db.get_instance_name_by_entity(entity)?;
+        db.commit(vec![name])?;
+        Ok(())
+    }
+
+    /// Add key to every entity in the database.
+    ///
+    /// ```
+    /// # use deeb::*;
+    /// # use anyhow::Error;
+    /// # use serde_json::json;
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Error> {
+    /// # let user = Entity::from("user");
+    /// # let db = Deeb::new();
+    /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
+    /// db.add_key(&user, "age", 10).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[allow(dead_code)]
+    pub async fn add_key<V>(
+        &self,
+        entity: &Entity,
+        key: &str,
+        value: V,
+        // transaction: Option<&mut Transaction>,
+    ) -> Result<(), Error>
+    where
+        V: Into<Value> + Clone,
+    {
+        debug!("Adding key");
+        // if let Some(transaction) = transaction {
+        //     let operation = Operation::AddKey {
+        //         entity: entity.clone(),
+        //         key: key.to_string(),
+        //         value: value.clone().into(),
+        //     };
+        //     transaction.add_operation(operation);
+        //     return Ok(());
+        // }
+        let mut db = self.db.write().await;
+        db.add_key(entity, key, value.into())?;
+        let name = db.get_instance_name_by_entity(entity)?;
+        db.commit(vec![name])?;
         Ok(())
     }
 }
