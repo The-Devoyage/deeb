@@ -20,6 +20,7 @@ pub mod transaction;
 /// A database instance. Tpically, a database instance is a JSON file on disk.
 /// The `entities` field is a list of entities that are stored in the database used
 /// by Deeb to index the data.
+#[derive(Debug, Clone)]
 pub struct DatabaseInstance {
     file_path: String,
     entities: Vec<Entity>,
@@ -94,9 +95,17 @@ pub struct Database {
 
 impl Database {
     pub fn new() -> Self {
-        Self {
-            instances: HashMap::new(),
-        }
+        let meta = Entity::new("_meta");
+        let meta_instance = DatabaseInstance {
+            file_path: "_meta.json".to_string(),
+            entities: vec![meta],
+            data: HashMap::new(),
+        };
+        let mut instances = HashMap::new();
+        instances.insert(Name::from("_meta"), meta_instance);
+        let mut database = Database { instances };
+        database.load_instance(&Name::from("_meta")).unwrap();
+        database
     }
 
     pub fn add_instance(
@@ -105,14 +114,49 @@ impl Database {
         file_path: &str,
         entities: Vec<Entity>,
     ) -> &mut Self {
-        self.instances.insert(
-            name.clone(),
-            DatabaseInstance {
-                file_path: file_path.to_string(),
-                entities,
-                data: HashMap::new(),
-            },
-        );
+        let instance = DatabaseInstance {
+            file_path: file_path.to_string(),
+            entities: entities.clone(),
+            data: HashMap::new(),
+        };
+        self.instances.insert(name.clone(), instance);
+
+        // Persist entity settings
+        for entity in entities.iter() {
+            let meta_instance = self.instances.get_mut(&Name::from("_meta")).unwrap();
+            let data = meta_instance
+                .data
+                .entry(EntityName::from("_meta"))
+                .or_insert(Vec::new());
+            let entity = json!({
+                "name": entity.name.to_string(),
+                "primary_key": entity.primary_key.clone(),
+                "associations": entity.associations.iter().map(|association| {
+                    json!({
+                        "from": association.from,
+                        "to": association.to,
+                        "entity_name": association.entity_name,
+                    })
+                }).collect::<Vec<Value>>(),
+                "indexes": entity.indexes.iter().map(|index| {
+                    json!({
+                        "name": index.name,
+                        "columns": index.columns,
+                    })
+                }).collect::<Vec<Value>>(),
+            });
+            // Replace the entity if it already exists
+            let index = data.iter().position(|value| {
+                value.get("name").unwrap().as_str().unwrap().to_string()
+                    == entity.get("name").unwrap().as_str().unwrap().to_string()
+            });
+            if let Some(index) = index {
+                data.remove(index);
+            }
+            data.push(entity);
+        }
+
+        self.commit(vec![Name::from("_meta")]).unwrap();
         self
     }
 
@@ -169,7 +213,7 @@ impl Database {
             .iter()
             .find(|(_, instance)| instance.entities.contains(entity))
             .map(|(name, _)| name);
-        let name = name.ok_or_else(|| Error::msg("Entity not found"))?;
+        let name = name.ok_or_else(|| Error::msg("Can't Find Entity Name"))?;
         Ok(name.clone())
     }
 

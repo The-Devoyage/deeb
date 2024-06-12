@@ -13,7 +13,7 @@
 //! cargo add deeb
 //! ```
 //!
-//! 2. Create a JSON file for your database.
+//! 2. Create a JSON file for your database - or let Deeb create it for you automatically.
 //!
 //! ```bash
 //! echo '{"user": []}' > user.json

@@ -685,4 +685,9 @@ impl Deeb {
         db.commit(vec![name])?;
         Ok(())
     }
+
+    pub fn get_meta(&self) -> Result<Entity, Error> {
+        let meta_entity = Entity::new("_meta");
+        Ok(meta_entity)
+    }
 }
