@@ -1,6 +1,6 @@
 # Deeb Changelog
 
-## v0.0.5 
+## v0.0.4 
 
 ### Added
 
@@ -9,10 +9,6 @@
 
 ### Changed
 - Improved array support.
-
-## v0.0.4
-
-### Changed
 
 - Defining an entity now has a `new` impl.
 
