@@ -2,9 +2,13 @@
 
 ## v0.0.5 
 
+### Added
+
 - Associate entities, primary keys, and joins.
-- Improved array support.
 - Drop key and add key functionality.
+
+### Changed
+- Improved array support.
 
 ## v0.0.4
 
