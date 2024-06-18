@@ -1,5 +1,4 @@
 //! # Deeb
-//! websites and fast prototyping.
 //! Inspired by flexibility of Mongo and light weight of SqLite, Deeb is a tool
 //! that turns a set of JSON files into a database.
 
@@ -89,7 +88,7 @@
 //! - [x] Querying
 //! - [ ] Migrations
 //! - [x] Benchmarks
-//! - [ ] Associations
+//! - [x] Associations
 //! - [x] Documentation
 //! - [x] Tests
 //! - [ ] Examples
@@ -120,6 +119,8 @@
 //! - `lte`: [Less Than or Equal](database::query::Query::lte) - Find documents based on less than or equal match.
 //! - `and`: [And](database::query::Query::and) - Find documents based on multiple conditions.
 //! - `or`: [Or](database::query::Query::or) - Find documents based on multiple conditions.
+//! - `all`: [All](database::query::Query::all) - Return all documents.
+//! - `associated`: [Associated](database::query::Query::associated) - Find documents based on association.
 //!
 //! ### Transactions
 //!

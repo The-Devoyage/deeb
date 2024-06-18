@@ -1,5 +1,11 @@
 # Deeb Changelog
 
+## v0.0.5 
+
+- Associate entities, primary keys, and joins.
+- Improved array support.
+- Drop key and add key functionality.
+
 ## v0.0.4
 
 ### Changed

@@ -97,7 +97,7 @@ async fn main() -> Result<(), Error> {
 - [x] Querying
 - [ ] Migrations
 - [x] Benchmarks
-- [ ] Associations
+- [x] Associations
 - [x] Documentation
 - [x] Tests
 - [ ] Examples

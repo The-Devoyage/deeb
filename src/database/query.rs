@@ -1,9 +1,15 @@
 use serde_json::Value;
 
+use crate::Entity;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Key(String);
 
-impl Key {}
+impl std::fmt::Display for Key {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 impl From<&str> for Key {
     fn from(s: &str) -> Self {
@@ -22,6 +28,7 @@ pub enum Query {
     Gte(Key, Value),
     And(Vec<Query>),
     Or(Vec<Query>),
+    Associated(Entity, Box<Query>),
     All,
 }
 
@@ -174,20 +181,63 @@ impl Query {
         Self::All
     }
 
-    fn get_value(&self, value: &Value, key: &str) -> Option<Value> {
+    /// Create a new query that matches documents based on associated entity.
+    /// ```
+    /// use deeb::*;
+    /// let user = Entity::new("user");
+    /// let comment = Entity::new("comment");
+    /// let query = Query::associated(comment, Query::eq("user_id", 1));
+    /// ```
+    #[allow(dead_code)]
+    pub fn associated(entity: Entity, query: Query) -> Self {
+        Self::Associated(entity, Box::new(query))
+    }
+
+    fn get_kv(&self, value: &Value, key: &str) -> Option<(Key, Value)> {
         if !key.contains('.') {
-            return value.get(key).cloned();
+            let value = value.get(key);
+            if value.is_none() {
+                return None;
+            }
+            return Some((Key(key.to_string()), value.cloned().unwrap()));
         }
         let mut keys = key.split('.').peekable();
         let mut value = value;
+        let mut current_key = None;
         while let Some(key) = keys.next() {
+            current_key = Some(key.to_string());
+            if !value.is_object() {
+                break;
+            }
             if let Some(nested) = value.get(key) {
                 value = nested;
             } else {
                 return None;
             }
         }
-        Some(value.clone())
+        Some((Key(current_key.unwrap()), value.clone()))
+    }
+
+    pub fn associated_entities(&self) -> Vec<Entity> {
+        let mut entities = vec![];
+        match self {
+            Self::Associated(entity, query) => {
+                entities.push(entity.clone());
+                entities.append(&mut query.associated_entities());
+            }
+            Self::And(queries) => {
+                for query in queries {
+                    entities.append(&mut query.associated_entities());
+                }
+            }
+            Self::Or(queries) => {
+                for query in queries {
+                    entities.append(&mut query.associated_entities());
+                }
+            }
+            _ => {}
+        }
+        entities
     }
 
     /// Check if the query matches the value.
@@ -203,16 +253,79 @@ impl Query {
     pub fn matches(&self, value: &Value) -> Result<bool, anyhow::Error> {
         let is_match = match self {
             Self::Eq(key, query_value) => {
-                let value = self.get_value(value, &key.0);
-                value == Some(query_value.clone())
+                let kv = self.get_kv(value, &key.0);
+                if let Some((kv_key, value)) = kv {
+                    if value.is_array() {
+                        let value = value.as_array().unwrap();
+                        for v in value {
+                            if v.is_object() {
+                                let v = v.as_object().unwrap();
+                                for (k, v) in v.iter() {
+                                    if v == query_value && k == &kv_key.to_string() {
+                                        return Ok(true);
+                                    }
+                                }
+                            }
+                            if v == query_value {
+                                return Ok(true);
+                            }
+                        }
+                        return Ok(false);
+                    }
+                    value == query_value.clone()
+                } else {
+                    false
+                }
             }
             Self::Ne(key, query_value) => {
-                let value = self.get_value(value, &key.0);
-                value != Some(query_value.clone())
+                let kv = self.get_kv(value, &key.0);
+                if let Some((_key, value)) = kv {
+                    if value.is_array() {
+                        let value = value.as_array().unwrap();
+                        for v in value {
+                            if v.is_object() {
+                                let v = v.as_object().unwrap();
+                                for (k, v) in v.iter() {
+                                    if v == query_value && k == &key.0 {
+                                        return Ok(false);
+                                    }
+                                }
+                                return Ok(true);
+                            }
+                            if v == query_value {
+                                return Ok(false);
+                            }
+                        }
+                    }
+                    value != query_value.clone()
+                } else {
+                    false
+                }
             }
             Self::Like(key, query_value) => {
-                let value = self.get_value(value, &key.0);
-                if let Some(value) = value {
+                let kv = self.get_kv(value, &key.0);
+                if let Some((key, value)) = kv {
+                    if value.is_array() {
+                        let value = value.as_array().unwrap();
+                        for v in value {
+                            if v.is_object() {
+                                let v = v.as_object().unwrap();
+                                for (k, v) in v.iter() {
+                                    if let Some(value) = v.as_str() {
+                                        if value.contains(query_value) && k == &key.to_string() {
+                                            return Ok(true);
+                                        }
+                                    }
+                                }
+                            }
+                            if let Some(value) = v.as_str() {
+                                if value.contains(query_value) {
+                                    return Ok(true);
+                                }
+                            }
+                        }
+                        return Ok(false);
+                    }
                     if let Some(value) = value.as_str() {
                         value.contains(query_value)
                     } else {
@@ -223,8 +336,41 @@ impl Query {
                 }
             }
             Self::Lt(key, query_value) => {
-                let value = self.get_value(value, &key.0);
-                if let Some(value) = value {
+                let kv = self.get_kv(value, &key.0);
+                if let Some((key, value)) = kv {
+                    // Handle Array
+                    if value.is_array() {
+                        let value = value.as_array().unwrap();
+                        for v in value {
+                            if v.is_object() {
+                                let v = v.as_object().unwrap();
+                                for (k, v) in v.iter() {
+                                    if let Some(value) = v.as_f64() {
+                                        let query_value = query_value.as_f64();
+                                        if query_value.is_none() {
+                                            continue;
+                                        }
+                                        let is_lt = value < query_value.unwrap() && k == &key.0;
+                                        if is_lt {
+                                            return Ok(true);
+                                        }
+                                    }
+                                }
+                            }
+                            if let Some(value) = v.as_f64() {
+                                let query_value = query_value.as_f64();
+                                if query_value.is_none() {
+                                    continue;
+                                }
+                                let is_lt = value < query_value.unwrap();
+                                if is_lt {
+                                    return Ok(true);
+                                }
+                            }
+                        }
+                        return Ok(false);
+                    }
+                    // Handle primitive types
                     if let Some(value) = value.as_f64() {
                         let query_value = query_value.as_f64();
                         match query_value {
@@ -251,87 +397,187 @@ impl Query {
                 }
             }
             Self::Lte(key, query_value) => {
-                let value = self.get_value(value, &key.0);
-                if let Some(value) = value {
+                let kv = self.get_kv(value, &key.0);
+                if let Some((key, value)) = kv {
+                    // Handle Array
+                    if value.is_array() {
+                        let value = value.as_array().unwrap();
+                        for v in value {
+                            if v.is_object() {
+                                let v = v.as_object().unwrap();
+                                for (k, v) in v.iter() {
+                                    if let Some(value) = v.as_f64() {
+                                        let query_value = query_value.as_f64();
+                                        if query_value.is_none() {
+                                            continue;
+                                        }
+                                        let is_lte = value <= query_value.unwrap() && k == &key.0;
+                                        if is_lte {
+                                            return Ok(true);
+                                        }
+                                    }
+                                }
+                            }
+                            if let Some(value) = v.as_f64() {
+                                let query_value = query_value.as_f64();
+                                if query_value.is_none() {
+                                    continue;
+                                }
+                                let is_lte = value <= query_value.unwrap();
+                                if is_lte {
+                                    return Ok(true);
+                                }
+                            }
+                        }
+                        return Ok(false);
+                    }
+
+                    // Handle Primitivves
                     if let Some(value) = value.as_f64() {
                         let query_value = query_value.as_f64();
                         match query_value {
-                            Some(query_value) => value <= query_value,
-                            None => false,
+                            Some(query_value) => return Ok(value <= query_value),
+                            None => return Ok(false),
                         }
                     } else if let Some(value) = value.as_i64() {
                         let query_value = query_value.as_i64();
                         match query_value {
-                            Some(query_value) => value <= query_value,
-                            None => false,
+                            Some(query_value) => return Ok(value <= query_value),
+                            None => return Ok(false),
                         }
                     } else if let Some(value) = value.as_u64() {
                         let query_value = query_value.as_u64();
                         match query_value {
-                            Some(query_value) => value <= query_value,
-                            None => false,
+                            Some(query_value) => return Ok(value <= query_value),
+                            None => return Ok(false),
                         }
                     } else {
-                        false
+                        return Ok(false);
                     }
                 } else {
-                    false
+                    return Ok(false);
                 }
             }
             Self::Gt(key, query_value) => {
-                let value = self.get_value(value, &key.0);
-                if let Some(value) = value {
+                let kv = self.get_kv(value, &key.0);
+                if let Some((key, value)) = kv {
+                    // handle array
+                    if value.is_array() {
+                        let value = value.as_array().unwrap();
+                        for v in value {
+                            if v.is_object() {
+                                let v = v.as_object().unwrap();
+                                for (k, v) in v.iter() {
+                                    if let Some(value) = v.as_f64() {
+                                        let query_value = query_value.as_f64();
+                                        match query_value {
+                                            Some(query_value) => {
+                                                return Ok(value > query_value && k == &key.0)
+                                            }
+                                            None => return Ok(false),
+                                        };
+                                    }
+                                }
+                                return Ok(false);
+                            }
+                            if let Some(value) = v.as_f64() {
+                                let query_value = query_value.as_f64();
+                                let is_gt = value > query_value.unwrap();
+                                if is_gt {
+                                    return Ok(true);
+                                }
+                            }
+                        }
+                        return Ok(false);
+                    }
+
+                    // handle primitives
                     if let Some(value) = value.as_f64() {
                         let query_value = query_value.as_f64();
                         match query_value {
-                            Some(query_value) => value > query_value,
-                            None => false,
+                            Some(query_value) => return Ok(value > query_value),
+                            None => return Ok(false),
                         }
                     } else if let Some(value) = value.as_i64() {
                         let query_value = query_value.as_i64();
                         match query_value {
-                            Some(query_value) => value > query_value,
-                            None => false,
+                            Some(query_value) => return Ok(value > query_value),
+                            None => return Ok(false),
                         }
                     } else if let Some(value) = value.as_u64() {
                         let query_value = query_value.as_u64();
                         match query_value {
-                            Some(query_value) => value > query_value,
-                            None => false,
+                            Some(query_value) => return Ok(value > query_value),
+                            None => return Ok(false),
                         }
                     } else {
-                        false
+                        return Ok(false);
                     }
                 } else {
-                    false
+                    return Ok(false);
                 }
             }
             Self::Gte(key, query_value) => {
-                let value = self.get_value(value, &key.0);
-                if let Some(value) = value {
+                let kv = self.get_kv(value, &key.0);
+                if let Some((key, value)) = kv {
+                    // handle array
+                    if value.is_array() {
+                        let value = value.as_array().unwrap();
+                        for v in value {
+                            println!("V: {:?}", v);
+                            if v.is_object() {
+                                let v = v.as_object().unwrap();
+                                for (k, v) in v.iter() {
+                                    if let Some(value) = v.as_f64() {
+                                        let query_value = query_value.as_f64();
+                                        match query_value {
+                                            Some(query_value) => {
+                                                return Ok(value >= query_value && k == &key.0)
+                                            }
+                                            None => return Ok(false),
+                                        };
+                                    }
+                                }
+                                return Ok(false);
+                            }
+                            if let Some(value) = v.as_f64() {
+                                let query_value = query_value.as_f64();
+                                if query_value.is_none() {
+                                    continue;
+                                }
+                                let is_gte = value >= query_value.unwrap();
+                                if is_gte {
+                                    return Ok(true);
+                                }
+                            }
+                        }
+                        return Ok(false);
+                    }
+
+                    // handle primitives
                     if let Some(value) = value.as_f64() {
                         let query_value = query_value.as_f64();
                         match query_value {
-                            Some(query_value) => value >= query_value,
-                            None => false,
+                            Some(query_value) => return Ok(value >= query_value),
+                            None => return Ok(false),
                         }
                     } else if let Some(value) = value.as_i64() {
                         let query_value = query_value.as_i64();
                         match query_value {
-                            Some(query_value) => value >= query_value,
-                            None => false,
+                            Some(query_value) => return Ok(value >= query_value),
+                            None => return Ok(false),
                         }
                     } else if let Some(value) = value.as_u64() {
                         let query_value = query_value.as_u64();
                         match query_value {
-                            Some(query_value) => value >= query_value,
-                            None => false,
+                            Some(query_value) => return Ok(value >= query_value),
+                            None => return Ok(false),
                         }
                     } else {
-                        false
+                        return Ok(false);
                     }
                 } else {
-                    false
+                    return Ok(false);
                 }
             }
             Self::And(queries) => queries
@@ -340,6 +586,10 @@ impl Query {
             Self::Or(queries) => queries
                 .iter()
                 .any(|query| query.matches(value).unwrap_or_else(|_| false)),
+            Self::Associated(_entity, query) => {
+                let is_match = query.matches(value).unwrap_or_else(|_| false);
+                is_match
+            }
             Self::All => true,
         };
         Ok(is_match)

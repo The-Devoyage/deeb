@@ -18,6 +18,8 @@ pub struct EntityAssociation {
     pub from: String,
     pub to: String,
     pub entity_name: EntityName,
+    /// Uses the entity name as the alias if not provided.
+    pub alias: EntityName,
 }
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Serialize, Deserialize)]
@@ -63,7 +65,15 @@ impl Entity {
         self
     }
 
-    pub fn associate<'a>(&mut self, entity: &'a mut Entity, from: &str) -> Result<Self, String> {
+    pub fn associate<'a, N>(
+        &mut self,
+        entity: &'a mut Entity,
+        from: &str,
+        alias: Option<N>,
+    ) -> Result<Self, String>
+    where
+        N: Into<EntityName>,
+    {
         // Make sure the keys are valid by enforcing primary keys in both entities
         if self.primary_key.is_none() {
             return Err(format!(
@@ -79,16 +89,20 @@ impl Entity {
             ));
         }
 
+        let alias = alias.map_or_else(|| entity.name.clone(), |a| a.into());
+
         self.associations.push(EntityAssociation {
-            from: from.to_string(),
-            to: entity.primary_key.clone().unwrap(),
+            from: entity.primary_key.clone().unwrap(),
+            to: from.to_string(),
             entity_name: entity.name.clone(),
+            alias,
         });
 
         entity.associations.push(EntityAssociation {
-            from: entity.primary_key.clone().unwrap(),
-            to: from.to_string(),
+            from: from.to_string(),
+            to: entity.primary_key.clone().unwrap(),
             entity_name: self.name.clone(),
+            alias: self.name.clone(),
         });
 
         Ok(self.clone())

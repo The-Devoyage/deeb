@@ -9,7 +9,7 @@ async fn spawn_deeb() -> Result<(Deeb, Entity, Entity), Error> {
     let mut comment = Entity::new("comment").primary_key("id");
     let user = Entity::new("user")
         .primary_key("id")
-        .associate(&mut comment, "user_id")
+        .associate(&mut comment, "user_id", Some("user_comment"))
         .map_err(|e| anyhow::anyhow!(e))?;
 
     // Add instances
@@ -21,6 +21,7 @@ async fn spawn_deeb() -> Result<(Deeb, Entity, Entity), Error> {
     .await?;
 
     db.delete_many(&user, Query::All, None).await?;
+    db.delete_many(&comment, Query::All, None).await?;
 
     // Populate initial data
     db.insert(&user, json!({"id": 1, "name": "oliver", "age": 0.5}), None)
@@ -187,6 +188,20 @@ async fn test_eq() {
 }
 
 #[tokio::test]
+async fn test_array_eq() {
+    let query = Query::eq("names", "nick");
+    let value = json!({ "names": ["jones", "nick", "olliard", "magnolia"] });
+    assert!(query.matches(&value).unwrap());
+}
+
+#[tokio::test]
+async fn test_array_object_eq() {
+    let query = Query::eq("user.name", "nick");
+    let value = json!({"user": [{"name": "jones", "age": 25}, {"name": "nick", "age": 35}]});
+    assert!(query.matches(&value).unwrap());
+}
+
+#[tokio::test]
 async fn test_nested_eq() {
     let query = Query::eq("user.name", "nick");
     let value = json!({"user": {"name": "nick", "age": 35}});
@@ -197,7 +212,23 @@ async fn test_nested_eq() {
 async fn test_ne() {
     let query = Query::ne("name", "nick");
     let value = json!({"name": "nick", "age": 35});
+    let is_match = query.matches(&value).unwrap();
+    println!("{:?}", is_match);
     assert!(!query.matches(&value).unwrap());
+}
+
+#[tokio::test]
+async fn test_array_ne() {
+    let query = Query::ne("names", "nick");
+    let value = json!({ "names": ["jones", "olliard", "magnolia"] });
+    assert!(query.matches(&value).unwrap());
+}
+
+#[tokio::test]
+async fn test_array_object_ne() {
+    let query = Query::ne("user.name", "nick");
+    let value = json!({"user": [{"name": "jimmy", "age": 35}, {"name": "nick", "age": 35}]});
+    assert!(query.matches(&value).unwrap());
 }
 
 #[tokio::test]
@@ -211,6 +242,20 @@ async fn test_nested_ne() {
 async fn test_like() {
     let query = Query::like("name", "ni");
     let value = json!({"name": "nick", "age": 35});
+    assert!(query.matches(&value).unwrap());
+}
+
+#[tokio::test]
+async fn test_array_like() {
+    let query = Query::like("names", "ni");
+    let value = json!({ "names": ["jack", "nick", "olliard", "magnolia"] });
+    assert!(query.matches(&value).unwrap());
+}
+
+#[tokio::test]
+async fn test_array_object_like() {
+    let query = Query::like("user.name", "ni");
+    let value = json!({"user": [{"name": "noodle", "age": 35}, {"name": "nick", "age": 35}]});
     assert!(query.matches(&value).unwrap());
 }
 
@@ -229,6 +274,20 @@ async fn test_lt() {
 }
 
 #[tokio::test]
+async fn test_array_lt() {
+    let query = Query::lt("ages", 35);
+    let value = json!({ "ages": [39, 34, 36, 37] });
+    assert!(query.matches(&value).unwrap());
+}
+
+#[tokio::test]
+async fn test_array_object_lt() {
+    let query = Query::lt("user.age", 35);
+    let value = json!({"user": [{"name": "nick", "age": 39}, {"name": "nick", "age": 34}]});
+    assert!(query.matches(&value).unwrap());
+}
+
+#[tokio::test]
 async fn test_nested_lt() {
     let query = Query::lt("user.age", 35);
     let value = json!({"user": {"name": "nick", "age": 34}});
@@ -239,6 +298,20 @@ async fn test_nested_lt() {
 async fn test_lte() {
     let query = Query::lte("age", 35);
     let value = json!({"age": 35});
+    assert!(query.matches(&value).unwrap());
+}
+
+#[tokio::test]
+async fn test_array_lte() {
+    let query = Query::lte("ages", 35);
+    let value = json!({ "ages": [44, 34, 35, 37] });
+    assert!(query.matches(&value).unwrap());
+}
+
+#[tokio::test]
+async fn test_array_object_lte() {
+    let query = Query::lte("user.age", 35);
+    let value = json!({"user": [{"name": "nick", "age": 39}, {"name": "nick", "age": 35}]});
     assert!(query.matches(&value).unwrap());
 }
 
@@ -257,6 +330,20 @@ async fn test_gt() {
 }
 
 #[tokio::test]
+async fn test_array_gt() {
+    let query = Query::gt("ages", 35);
+    let value = json!({ "ages": [34, 36, 37] });
+    assert!(query.matches(&value).unwrap());
+}
+
+#[tokio::test]
+async fn test_array_object_gt() {
+    let query = Query::gt("user.age", 35);
+    let value = json!({"user": [{"name": "nick", "age": 36}]});
+    assert!(query.matches(&value).unwrap());
+}
+
+#[tokio::test]
 async fn test_nested_gt() {
     let query = Query::gt("user.age", 35);
     let value = json!({"user": {"name": "nick", "age": 36}});
@@ -267,6 +354,20 @@ async fn test_nested_gt() {
 async fn test_gte() {
     let query = Query::gte("age", 35);
     let value = json!({"age": 35});
+    assert!(query.matches(&value).unwrap());
+}
+
+#[tokio::test]
+async fn test_array_gte() {
+    let query = Query::gte("ages", 35);
+    let value = json!({ "ages": [34, 35, 37] });
+    assert!(query.matches(&value).unwrap());
+}
+
+#[tokio::test]
+async fn test_array_object_gte() {
+    let query = Query::gte("user.age", 35);
+    let value = json!({"user": [{"name": "nick", "age": 35}]});
     assert!(query.matches(&value).unwrap());
 }
 
@@ -401,10 +502,23 @@ async fn load_meta() -> Result<(), Error> {
     assert_eq!(meta[0]["primary_key"], "id");
     assert_eq!(meta[1]["primary_key"], "id");
     // associations
-    assert_eq!(meta[0]["associations"][0]["from"], "user_id");
-    assert_eq!(meta[0]["associations"][0]["to"], "id");
-    assert_eq!(meta[1]["associations"][0]["from"], "id");
-    assert_eq!(meta[1]["associations"][0]["to"], "user_id");
+    assert_eq!(meta[0]["associations"][0]["from"], "id");
+    assert_eq!(meta[0]["associations"][0]["to"], "user_id");
+    assert_eq!(meta[1]["associations"][0]["from"], "user_id");
+    assert_eq!(meta[1]["associations"][0]["to"], "id");
 
+    Ok(())
+}
+
+#[tokio::test]
+async fn find_by_association() -> Result<(), Error> {
+    let (db, user, comment) = spawn_deeb().await?;
+    let query = Query::associated(comment.clone(), Query::eq("user_comment.comment", "Hello"));
+    let result = db.find_many(&user, query, None).await?;
+    let first_comment = result[0]["user_comment"].as_array().unwrap()[0]
+        .as_object()
+        .unwrap()["comment"]
+        .clone();
+    assert_eq!(first_comment, "Hello");
     Ok(())
 }

@@ -286,6 +286,39 @@ impl Database {
             .data
             .get(&entity.name)
             .ok_or_else(|| Error::msg("Data not found"))?;
+        let associated_entities = query.associated_entities();
+        let data = data
+            .iter()
+            .map(|value| {
+                let mut value = value.clone();
+                for associated_entity in associated_entities.iter() {
+                    let association = entity
+                        .associations
+                        .iter()
+                        .find(|association| association.entity_name == associated_entity.name);
+
+                    if association.is_none() {
+                        continue;
+                    }
+
+                    let association = association.unwrap();
+                    let association_query = Query::eq(
+                        association.to.clone().as_str(),
+                        value.get(association.from.clone()).unwrap().clone(), //TODO: Unwrap this
+                                                                              //safely
+                    );
+                    let associated_data = self
+                        .find_many(associated_entity, association_query)
+                        .unwrap();
+
+                    value.as_object_mut().unwrap().insert(
+                        association.alias.clone().to_string(),
+                        Value::Array(associated_data),
+                    );
+                }
+                value
+            })
+            .collect::<Vec<Value>>();
         let result = data
             .iter()
             .filter(|value| query.clone().matches(value).unwrap_or(false));
