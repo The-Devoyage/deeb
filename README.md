@@ -27,7 +27,7 @@ echo '{"user": []}' > user.json
 echo '{"comment": []}' > comment.json
 ```
 
-3. Create a deed instance and perform operations
+3. Create a deeb instance and perform operations
 
 ```rust
 use deeb::*;
