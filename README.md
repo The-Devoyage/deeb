@@ -1,10 +1,10 @@
 # Deeb - JSON Database
 
-Prounced `D-B`, Deeb is an Acid Compliant JSON based database for small 
+Prounced how you like, Deeb is an Acid(ish) Compliant JSON based database for small 
 websites and fast prototyping. 
 
 Inspired by flexibility of Mongo and light weight of SqLite, Deeb is a tool 
-that turns a set of JSON files into a database. 
+that turns a set of JSON files into a light weight database. 
 
 Deeb's ability to turn groups JSON files into a database allows you to simply 
 open a json file and edit as needed.
@@ -20,14 +20,19 @@ to learn more.
 cargo add deeb
 ```
 
-2. Create a JSON file for your database.
+2. Optionally, Create a JSON file for your database. Deeb will also create one for you if you like. 
 
 ```bash
 echo '{"user": []}' > user.json
 echo '{"comment": []}' > comment.json
 ```
 
-3. Create a deeb instance and perform operations
+**Terminology**
+- Instance: A single .json file managed by Deeb. Each instance can store multiple entities and serves as a lightweight, self-contained database.
+- Entity: Similar to a table (SQL) or collection (MongoDB), an entity groups documents of a consistent type within an instance.
+- Document: An individual record within an entity. Documents are stored as JSON objects and represent a single unit of data (e.g., a user, message, or task).
+
+3. Create a deeb instance and perform operations.
 
 ```rust
 use deeb::*;
@@ -40,8 +45,8 @@ async fn main() -> Result<(), Error> {
     let db = Deeb::new();
 
     // Create a new entity
-    let user = Entity::from("user");
-    let comment = Entity::from("comment");
+    let user = Entity::new("user");
+    let comment = Entity::new("comment");
 
     db.add_instance("test", "./user.json", vec![user.clone()])
         .await?;
@@ -83,10 +88,10 @@ async fn main() -> Result<(), Error> {
 
 ## Features
 
-- **ACID Compliant**: Deeb is an ACID compliant database
-- **JSON Based**: Deeb uses JSON files as the database
-- **Schemaless**: Deeb is schemaless
-- **Transactions**: Deeb supports transactions
+- **ACIDish Compliant**: Deeb is an ACIDish compliant database. We get close as we can for a light weight JSON based DB.
+- **JSON-Based Storage**: Deeb uses lightweight JSON files as the underlying data store, providing human-readable structure and seamless integration with any system that speaks JSON.
+- **Schemaless**: Deeb doesn't require a predefined schema like traditional SQL or strongly-typed NoSQL databases. However, by using Rust generics, you can enforce type safety at compile time. This means Deeb stays flexible at runtime, while giving you confidence at build time.
+- **Transactions**: Perform multiple operations as a single unit — commit them all at once or roll them back if something fails.
 - **Querying**: Deeb supports querying, nested queries, and combination queries.
 
 ## Roadmap
@@ -100,8 +105,10 @@ async fn main() -> Result<(), Error> {
 - [x] Associations
 - [x] Documentation
 - [x] Tests
-- [ ] Examples
+- [x] Examples
 - [ ] Logging
 - [ ] Error Handling
 - [ ] CI/CD
+- [ ] Improve Transactions - Should return updated object instead of Option<T>
+- [ ] Implement traits and proc macros to streamline usage - `User.find_many(...)`
 

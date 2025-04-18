@@ -1,5 +1,6 @@
 use anyhow::Error;
 use log::*;
+use serde::de::DeserializeOwned;
 use serde_json::Value;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -9,6 +10,7 @@ use crate::database::{
     Operation,
 };
 
+#[derive(Clone, Debug)]
 pub struct Deeb {
     db: Arc<RwLock<Database>>,
 }
@@ -92,23 +94,33 @@ impl Deeb {
     /// ```
     /// # use deeb::*;
     /// # use anyhow::Error;
+    /// # use serde::Deserialize;
     /// # use serde_json::json;
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
     /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
-    /// db.insert(&user, json!({"id": 1, "name": "Joey", "age": 10}), None).await?;
+    /// # #[derive(Deserialize)]
+    /// # struct User {
+    /// #   id: i32,
+    /// #   name: String,
+    /// #   age: i32
+    /// # }
+    /// db.insert::<User>(&user, json!({"id": 1, "name": "Joey", "age": 10}), None).await?;
     /// # Ok(())
     /// # }
     /// ```
     #[allow(dead_code)]
-    pub async fn insert(
+    pub async fn insert<T>(
         &self,
         entity: &Entity,
         value: Value,
         transaction: Option<&mut Transaction>,
-    ) -> Result<Value, Error> {
+    ) -> Result<T, Error>
+    where
+        T: DeserializeOwned,
+    {
         debug!("Inserting");
         if let Some(transaction) = transaction {
             let operation = Operation::InsertOne {
@@ -116,14 +128,15 @@ impl Deeb {
                 value: value.clone(),
             };
             transaction.add_operation(operation);
-            return Ok(value);
+            return Ok(serde_json::from_value(value)?);
         }
 
         let mut db = self.db.write().await;
         let value = db.insert(entity, value)?;
         let name = db.get_instance_name_by_entity(entity)?;
         db.commit(vec![name])?;
-        Ok(value)
+        let typed: Result<T, _> = serde_json::from_value(value);
+        Ok(typed?)
     }
 
     /// Insert multiple values into the database.
@@ -134,22 +147,32 @@ impl Deeb {
     /// # use deeb::*;
     /// # use anyhow::Error;
     /// # use serde_json::json;
+    /// # use serde::Deserialize;
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
     /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
-    /// db.insert_many(&user, vec![json!({"id": 1, "name": "Joey", "age": 10}), json!({"id": 2, "name": "Steve", "age": 3})], None).await?;
+    /// # #[derive(Deserialize)]
+    /// # struct User {
+    /// #   id: i32,
+    /// #   name: String,
+    /// #   age: i32
+    /// # }
+    /// db.insert_many::<User>(&user, vec![json!({"id": 1, "name": "Joey", "age": 10}), json!({"id": 2, "name": "Steve", "age": 3})], None).await?;
     /// # Ok(())
     /// # }
     /// ```
     #[allow(dead_code)]
-    pub async fn insert_many(
+    pub async fn insert_many<T>(
         &self,
         entity: &Entity,
         values: Vec<Value>,
         transaction: Option<&mut Transaction>,
-    ) -> Result<Vec<Value>, Error> {
+    ) -> Result<Vec<T>, Error>
+    where
+        T: DeserializeOwned,
+    {
         debug!("Inserting many");
         if let Some(transaction) = transaction {
             let operation = Operation::InsertMany {
@@ -157,14 +180,16 @@ impl Deeb {
                 values: values.clone(),
             };
             transaction.add_operation(operation);
-            return Ok(values);
+            let typed: Result<Vec<T>, _> = values.into_iter().map(serde_json::from_value).collect();
+            return Ok(typed?);
         }
 
         let mut db = self.db.write().await;
         let values = db.insert_many(entity, values)?;
         let name = db.get_instance_name_by_entity(entity)?;
         db.commit(vec![name])?;
-        Ok(values)
+        let typed: Result<Vec<T>, _> = values.into_iter().map(serde_json::from_value).collect();
+        Ok(typed?)
     }
 
     /// Find a single value in the database.
@@ -175,23 +200,33 @@ impl Deeb {
     /// # use deeb::*;
     /// # use anyhow::Error;
     /// # use serde_json::json;
+    /// # use serde::Deserialize;
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
     /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
-    /// # db.insert(&user, json!({"id": 1, "name": "Joey", "age": 10}), None).await?;
-    /// db.find_one(&user, Query::eq("name", "Joey"), None).await?;
+    /// # #[derive(Deserialize)]
+    /// # struct User {
+    /// #   id: i32,
+    /// #   name: String,
+    /// #   age: i32
+    /// # }
+    /// # db.insert::<User>(&user, json!({"id": 1, "name": "Joey D", "age": 10}), None).await?;
+    /// db.find_one::<User>(&user, Query::eq("name", "Joey D"), None).await?;
     /// # Ok(())
     /// # }
     /// ```
     #[allow(dead_code)]
-    pub async fn find_one(
+    pub async fn find_one<T>(
         &self,
         entity: &Entity,
         query: Query,
         transaction: Option<&mut Transaction>,
-    ) -> Result<Value, Error> {
+    ) -> Result<Option<T>, Error>
+    where
+        T: DeserializeOwned,
+    {
         debug!("Finding one");
         if let Some(transaction) = transaction {
             let operation = Operation::FindOne {
@@ -199,13 +234,16 @@ impl Deeb {
                 query: query.clone(),
             };
             transaction.add_operation(operation);
-            return Ok(Value::Null);
+            return Ok(None);
         }
 
         let db = self.db.read().await;
-        let value = db.find_one(entity, query)?;
+        let value = db.find_one(entity, query).ok();
         trace!("Found value: {:?}", value);
-        Ok(value)
+        match value {
+            Some(v) => Ok(Some(serde_json::from_value(v)?)),
+            None => Ok(None),
+        }
     }
 
     /// Find multiple values in the database.
@@ -216,23 +254,33 @@ impl Deeb {
     /// # use deeb::*;
     /// # use anyhow::Error;
     /// # use serde_json::json;
+    /// # use serde::Deserialize;
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
     /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
-    /// # db.insert(&user, json!({"id": 1, "name": "Joey", "age": 10}), None).await?;
-    /// db.find_many(&user, Query::eq("age", 10), None).await?;
+    /// # #[derive(Deserialize)]
+    /// # struct User {
+    /// #   id: i32,
+    /// #   name: String,
+    /// #   age: i32
+    /// # }
+    /// # db.insert::<User>(&user, json!({"id": 1, "name": "Joey", "age": 10}), None).await?;
+    /// db.find_many::<User>(&user, Query::eq("age", 10), None).await?;
     /// # Ok(())
     /// # }
     /// ```
     #[allow(dead_code)]
-    pub async fn find_many(
+    pub async fn find_many<T>(
         &self,
         entity: &Entity,
         query: Query,
         transaction: Option<&mut Transaction>,
-    ) -> Result<Vec<Value>, Error> {
+    ) -> Result<Option<Vec<T>>, Error>
+    where
+        T: DeserializeOwned,
+    {
         debug!("Finding many");
         if let Some(transaction) = transaction {
             let operation = Operation::FindMany {
@@ -240,13 +288,14 @@ impl Deeb {
                 query: query.clone(),
             };
             transaction.add_operation(operation);
-            return Ok(vec![]);
+            return Ok(None);
         }
 
         let db = self.db.read().await;
         let values = db.find_many(entity, query)?;
         trace!("Found values: {:?}", values);
-        Ok(values)
+        let typed: Result<Vec<T>, _> = values.into_iter().map(serde_json::from_value).collect();
+        Ok(Some(typed?))
     }
 
     /// Delete a single value from the database.
@@ -257,12 +306,19 @@ impl Deeb {
     /// # use deeb::*;
     /// # use anyhow::Error;
     /// # use serde_json::json;
+    /// # use serde::Deserialize;
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
     /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
-    /// # db.insert(&user, json!({"id": 1, "name": "Joey", "age": 10}), None).await?;
+    /// # #[derive(Deserialize)]
+    /// # struct User {
+    /// #   id: i32,
+    /// #   name: String,
+    /// #   age: i32
+    /// # }
+    /// # db.insert::<User>(&user, json!({"id": 1, "name": "Joey", "age": 10}), None).await?;
     /// db.delete_one(&user, Query::eq("name", "Joey"), None).await?;
     /// # Ok(())
     /// # }
@@ -273,7 +329,7 @@ impl Deeb {
         entity: &Entity,
         query: Query,
         transaction: Option<&mut Transaction>,
-    ) -> Result<Value, Error> {
+    ) -> Result<Option<bool>, Error> {
         debug!("Deleting one");
         if let Some(transaction) = transaction {
             let operation = Operation::DeleteOne {
@@ -281,7 +337,7 @@ impl Deeb {
                 query: query.clone(),
             };
             transaction.add_operation(operation);
-            return Ok(Value::Null);
+            return Ok(None);
         }
 
         let mut db = self.db.write().await;
@@ -289,7 +345,7 @@ impl Deeb {
         let name = db.get_instance_name_by_entity(entity)?;
         db.commit(vec![name])?;
         trace!("Deleted value: {:?}", value);
-        Ok(value)
+        Ok(Some(true))
     }
 
     /// Delete multiple values from the database.
@@ -315,7 +371,7 @@ impl Deeb {
         entity: &Entity,
         query: Query,
         transaction: Option<&mut Transaction>,
-    ) -> Result<Vec<Value>, Error> {
+    ) -> Result<Option<bool>, Error> {
         debug!("Deleting many");
         if let Some(transaction) = transaction {
             let operation = Operation::DeleteMany {
@@ -323,7 +379,7 @@ impl Deeb {
                 query: query.clone(),
             };
             transaction.add_operation(operation);
-            return Ok(vec![]);
+            return Ok(None);
         }
 
         let mut db = self.db.write().await;
@@ -331,7 +387,7 @@ impl Deeb {
         let name = db.get_instance_name_by_entity(entity)?;
         db.commit(vec![name])?;
         trace!("Deleted values: {:?}", values);
-        Ok(values)
+        Ok(Some(true))
     }
 
     /// Update a single value in the database.
@@ -342,24 +398,34 @@ impl Deeb {
     /// # use deeb::*;
     /// # use anyhow::Error;
     /// # use serde_json::json;
+    /// # use serde::Deserialize;
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
     /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
-    /// # db.insert(&user, json!({"id": 1, "name": "Joey", "age": 10}), None).await?;
-    /// db.update_one(&user, Query::eq("age", 10), json!({"age": 3}), None).await?;
+    /// # #[derive(Deserialize)]
+    /// # struct User {
+    /// #   id: i32,
+    /// #   name: String,
+    /// #   age: i32
+    /// # }
+    /// # db.insert::<User>(&user, json!({"id": 1, "name": "Joey", "age": 10}), None).await?;
+    /// db.update_one::<User>(&user, Query::eq("age", 10), json!({"age": 3}), None).await?;
     /// # Ok(())
     /// # }
     /// ```
     #[allow(dead_code)]
-    pub async fn update_one(
+    pub async fn update_one<T>(
         &self,
         entity: &Entity,
         query: Query,
         update_value: Value,
         transaction: Option<&mut Transaction>,
-    ) -> Result<Value, Error> {
+    ) -> Result<Option<T>, Error>
+    where
+        T: DeserializeOwned,
+    {
         debug!("Updating one");
         if let Some(transaction) = transaction {
             let operation = Operation::UpdateOne {
@@ -368,7 +434,7 @@ impl Deeb {
                 value: update_value.clone(),
             };
             transaction.add_operation(operation);
-            return Ok(update_value);
+            return Ok(None);
         }
 
         let mut db = self.db.write().await;
@@ -376,7 +442,7 @@ impl Deeb {
         let name = db.get_instance_name_by_entity(entity)?;
         db.commit(vec![name])?;
         trace!("Updated value: {:?}", value);
-        Ok(value)
+        Ok(Some(serde_json::from_value(value)?))
     }
 
     /// Update multiple values in the database.
@@ -387,24 +453,34 @@ impl Deeb {
     /// # use deeb::*;
     /// # use anyhow::Error;
     /// # use serde_json::json;
+    /// # use serde::Deserialize;
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
     /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
-    /// # db.update_many(&user, Query::eq("age", 10), json!({"age": 3}), None).await?;
-    /// db.update_many(&user, Query::eq("age", 10), json!({"age": 3}), None).await?;
+    /// # #[derive(Deserialize)]
+    /// # struct User {
+    /// #   id: i32,
+    /// #   name: String,
+    /// #   age: i32
+    /// # }
+    /// # db.update_many::<User>(&user, Query::eq("age", 10), json!({"age": 3}), None).await?;
+    /// db.update_many::<User>(&user, Query::eq("age", 10), json!({"age": 3}), None).await?;
     /// # Ok(())
     /// # }
     /// ```
     #[allow(dead_code)]
-    pub async fn update_many(
+    pub async fn update_many<T>(
         &self,
         entity: &Entity,
         query: Query,
         update_value: Value,
         transaction: Option<&mut Transaction>,
-    ) -> Result<Vec<Value>, Error> {
+    ) -> Result<Option<Vec<T>>, Error>
+    where
+        T: DeserializeOwned,
+    {
         debug!("Updating many");
         if let Some(transaction) = transaction {
             let operation = Operation::UpdateMany {
@@ -413,7 +489,7 @@ impl Deeb {
                 value: update_value.clone(),
             };
             transaction.add_operation(operation);
-            return Ok(vec![]);
+            return Ok(None);
         }
 
         let mut db = self.db.write().await;
@@ -421,7 +497,8 @@ impl Deeb {
         let name = db.get_instance_name_by_entity(entity)?;
         db.commit(vec![name])?;
         trace!("Updated values: {:?}", values);
-        Ok(values)
+        let typed: Result<Vec<T>, _> = values.into_iter().map(serde_json::from_value).collect();
+        Ok(Some(typed?))
     }
 
     // Handle Transaction
@@ -451,14 +528,21 @@ impl Deeb {
     /// # use deeb::*;
     /// # use anyhow::Error;
     /// # use serde_json::json;
+    /// # use serde::Deserialize;
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
     /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
     /// let mut transaction = db.begin_transaction().await;
-    /// db.insert(&user, json!({"id": 1, "name": "Steve", "age": 3}), Some(&mut transaction)).await?;
-    /// db.insert(&user, json!({"id": 2, "name": "Johnny", "age": 3}), Some(&mut transaction)).await?;
+    /// # #[derive(Deserialize)]
+    /// # struct User {
+    /// #   id: i32,
+    /// #   name: String,
+    /// #   age: i32
+    /// # }
+    /// db.insert::<User>(&user, json!({"id": 1, "name": "Steve", "age": 3}), Some(&mut transaction)).await?;
+    /// db.insert::<User>(&user, json!({"id": 2, "name": "Johnny", "age": 3}), Some(&mut transaction)).await?;
     /// db.commit(&mut transaction).await?;
     /// # Ok(())
     /// # }
@@ -609,12 +693,19 @@ impl Deeb {
     /// # use deeb::*;
     /// # use anyhow::Error;
     /// # use serde_json::json;
+    /// # use serde::Deserialize;
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
     /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
-    /// # db.insert(&user, json!({"id": 1, "name": "Joey", "age": 10}), None).await?;
+    /// # #[derive(Deserialize)]
+    /// # struct User {
+    /// #   id: i32,
+    /// #   name: String,
+    /// #   age: i32
+    /// # }
+    /// # db.insert::<User>(&user, json!({"id": 1, "name": "Joey", "age": 10}), None).await?;
     /// db.drop_key(&user, "age").await?;
     /// # Ok(())
     /// # }
@@ -686,6 +777,7 @@ impl Deeb {
         Ok(())
     }
 
+    /// Construct the Meta entity
     pub fn get_meta(&self) -> Result<Entity, Error> {
         let meta_entity = Entity::new("_meta");
         Ok(meta_entity)

@@ -89,6 +89,7 @@ pub enum Operation {
 }
 
 /// A database that stores multiple instances of data.
+#[derive(Debug)]
 pub struct Database {
     instances: HashMap<Name, DatabaseInstance>,
 }
@@ -136,6 +137,7 @@ impl Database {
                         "from": association.from,
                         "to": association.to,
                         "entity_name": association.entity_name,
+                        "alias": association.alias
                     })
                 }).collect::<Vec<Value>>(),
                 "indexes": entity.indexes.iter().map(|index| {

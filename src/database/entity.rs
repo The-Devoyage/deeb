@@ -91,6 +91,8 @@ impl Entity {
 
         let alias = alias.map_or_else(|| entity.name.clone(), |a| a.into());
 
+        println!("ALIAS: {alias}");
+
         self.associations.push(EntityAssociation {
             from: entity.primary_key.clone().unwrap(),
             to: from.to_string(),
