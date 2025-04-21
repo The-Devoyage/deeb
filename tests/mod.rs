@@ -674,7 +674,7 @@ struct UserAddressBefore {
 
 #[tokio::test]
 async fn add_key_nested() -> Result<(), Error> {
-    let (db, user_address, ..) = spawn_deeb().await?;
+    let (db, _user, _comment, user_address) = spawn_deeb().await?;
     db.delete_many(&user_address, Query::All, None).await?;
     db.insert::<UserAddress>(
         &user_address,
@@ -715,19 +715,19 @@ async fn add_key_nested() -> Result<(), Error> {
     .await?;
     println!("AFTER");
 
-    db.add_key(&user_address, "address.meta.zip", 10001).await?;
+    db.add_key(&user_address, "address.meta.zip", 12222).await?;
     db.add_key(&user_address, "address.meta.additional", "Yo")
         .await?;
 
     println!("KEY ADDED");
 
-    let query = Query::eq("address.meta.zip", 10001);
+    let query = Query::eq("address.meta.zip", 12222);
     let result = db
         .find_one::<UserAddress>(&user_address, query, None)
         .await?
         .ok_or_else(|| Error::msg("Expected type but found none."))?;
     println!("SEARCHED: {:?}", result);
-    assert_eq!(result.address.meta.unwrap().zip, 10001);
+    assert_eq!(result.address.meta.unwrap().zip, 12222);
     Ok(())
 }
 
