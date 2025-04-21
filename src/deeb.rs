@@ -160,7 +160,7 @@ impl Deeb {
     /// #   name: String,
     /// #   age: i32
     /// # }
-    /// db.insert_many::<User>(&user, vec![json!({"id": 1, "name": "Joey", "age": 10}), json!({"id": 2, "name": "Steve", "age": 3})], None).await?;
+    /// db.insert_many::<User>(&user, vec![User {id: 1, name: "Joey".to_string(), age: 10}, User {id: 2, name: "Steve".to_string(), age: 3}], None).await?;
     /// # Ok(())
     /// # }
     /// ```
@@ -168,13 +168,17 @@ impl Deeb {
     pub async fn insert_many<T>(
         &self,
         entity: &Entity,
-        values: Vec<Value>,
+        values: Vec<T>,
         transaction: Option<&mut Transaction>,
     ) -> Result<Vec<T>, Error>
     where
-        T: DeserializeOwned,
+        T: Serialize + DeserializeOwned,
     {
         debug!("Inserting many");
+        let values: Vec<Value> = values
+            .into_iter()
+            .map(serde_json::to_value)
+            .collect::<Result<_, _>>()?;
         if let Some(transaction) = transaction {
             let operation = Operation::InsertMany {
                 entity: entity.clone(),

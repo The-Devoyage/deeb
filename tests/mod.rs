@@ -132,18 +132,31 @@ async fn insert_one() -> Result<(), Error> {
 async fn insert_many() -> Result<(), Error> {
     let (db, user, _comment, ..) = spawn_deeb().await?;
     let values = vec![
-        json!({"name": "jack", "age": 21, "id": 92884}),
-        json!({"name": "jull", "age": 20, "id": 923489}),
+        User {
+            name: "jack".to_string(),
+            age: 21.0,
+            id: 92884,
+        },
+        User {
+            name: "jull".to_string(),
+            age: 20.0,
+            id: 923489,
+        },
     ];
     let result = db.insert_many::<User>(&user, values, None).await?;
-    let expected: Result<Vec<User>, _> = vec![
-        json!({"name": "jack", "age": 21, "id": 92884}),
-        json!({"name": "jull", "age": 20, "id": 923489}),
-    ]
-    .into_iter()
-    .map(serde_json::from_value)
-    .collect();
-    assert_eq!(result, expected?);
+    let expected = vec![
+        User {
+            name: "jack".to_string(),
+            age: 21.0,
+            id: 92884,
+        },
+        User {
+            name: "jull".to_string(),
+            age: 20.0,
+            id: 923489,
+        },
+    ];
+    assert_eq!(result, expected);
     Ok(())
 }
 
