@@ -177,7 +177,8 @@ impl Database {
                 let buf = &mut Vec::new();
                 file.read_to_end(buf)?;
                 instance.data = serde_json::from_slice(buf)?;
-                file.unlock()?;
+                fs2::FileExt::unlock(&file)?
+
             }
             Err(_) => {
                 let mut file = fs::File::create(&instance.file_path)?;
@@ -191,7 +192,7 @@ impl Database {
                 file.lock_exclusive()?;
                 instance.data = serde_json::from_slice(serde_json::to_string(&json)?.as_bytes())?;
                 file.write_all(serde_json::to_string(&json)?.as_bytes())?;
-                file.unlock()?;
+                fs2::FileExt::unlock(&file)?
             }
         }
         Ok(self)

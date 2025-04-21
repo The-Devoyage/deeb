@@ -1,5 +1,15 @@
 # Deeb Changelog
 
+## v0.0.6
+
+### Added
+
+- Typed inserts - Insert method now requires the matching type passed into the generic.
+
+### Fixed
+
+- FS Warning Resolved
+
 ## v0.0.4 
 
 ### Added
