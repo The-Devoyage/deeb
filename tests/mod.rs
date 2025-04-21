@@ -703,7 +703,6 @@ async fn add_key_nested() -> Result<(), Error> {
     )
     .await?;
 
-    println!("BEFORE");
     db.insert::<UserAddressBefore>(
         &user_address,
         UserAddressBefore {
@@ -713,20 +712,16 @@ async fn add_key_nested() -> Result<(), Error> {
         None,
     )
     .await?;
-    println!("AFTER");
 
     db.add_key(&user_address, "address.meta.zip", 12222).await?;
     db.add_key(&user_address, "address.meta.additional", "Yo")
         .await?;
-
-    println!("KEY ADDED");
 
     let query = Query::eq("address.meta.zip", 12222);
     let result = db
         .find_one::<UserAddress>(&user_address, query, None)
         .await?
         .ok_or_else(|| Error::msg("Expected type but found none."))?;
-    println!("SEARCHED: {:?}", result);
     assert_eq!(result.address.meta.unwrap().zip, 12222);
     Ok(())
 }
