@@ -1,6 +1,6 @@
 use anyhow::Error;
 use log::*;
-use serde::de::DeserializeOwned;
+use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -94,20 +94,20 @@ impl Deeb {
     /// ```
     /// # use deeb::*;
     /// # use anyhow::Error;
-    /// # use serde::Deserialize;
+    /// # use serde::{Serialize, Deserialize};
     /// # use serde_json::json;
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
     /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
-    /// # #[derive(Deserialize)]
+    /// # #[derive(Serialize, Deserialize)]
     /// # struct User {
     /// #   id: i32,
     /// #   name: String,
     /// #   age: i32
     /// # }
-    /// db.insert::<User>(&user, json!({"id": 1, "name": "Joey", "age": 10}), None).await?;
+    /// db.insert::<User>(&user, User {id: 1, name: "Joey".to_string(), age: 10}, None).await?;
     /// # Ok(())
     /// # }
     /// ```
@@ -115,13 +115,14 @@ impl Deeb {
     pub async fn insert<T>(
         &self,
         entity: &Entity,
-        value: Value,
+        value: T,
         transaction: Option<&mut Transaction>,
     ) -> Result<T, Error>
     where
-        T: DeserializeOwned,
+        T: DeserializeOwned + Serialize,
     {
         debug!("Inserting");
+        let value = serde_json::to_value(value)?;
         if let Some(transaction) = transaction {
             let operation = Operation::InsertOne {
                 entity: entity.clone(),
@@ -147,13 +148,13 @@ impl Deeb {
     /// # use deeb::*;
     /// # use anyhow::Error;
     /// # use serde_json::json;
-    /// # use serde::Deserialize;
+    /// # use serde::{Serialize, Deserialize};
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
     /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
-    /// # #[derive(Deserialize)]
+    /// # #[derive(Serialize, Deserialize)]
     /// # struct User {
     /// #   id: i32,
     /// #   name: String,
@@ -200,19 +201,19 @@ impl Deeb {
     /// # use deeb::*;
     /// # use anyhow::Error;
     /// # use serde_json::json;
-    /// # use serde::Deserialize;
+    /// # use serde::{Serialize, Deserialize};
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
     /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
-    /// # #[derive(Deserialize)]
+    /// # #[derive(Serialize, Deserialize)]
     /// # struct User {
     /// #   id: i32,
     /// #   name: String,
     /// #   age: i32
     /// # }
-    /// # db.insert::<User>(&user, json!({"id": 1, "name": "Joey D", "age": 10}), None).await?;
+    /// # db.insert::<User>(&user, User {id: 1, name: "Joey D".to_string(), age: 10}, None).await?;
     /// db.find_one::<User>(&user, Query::eq("name", "Joey D"), None).await?;
     /// # Ok(())
     /// # }
@@ -254,19 +255,19 @@ impl Deeb {
     /// # use deeb::*;
     /// # use anyhow::Error;
     /// # use serde_json::json;
-    /// # use serde::Deserialize;
+    /// # use serde::{Serialize, Deserialize};
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
     /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
-    /// # #[derive(Deserialize)]
+    /// # #[derive(Serialize, Deserialize)]
     /// # struct User {
     /// #   id: i32,
     /// #   name: String,
     /// #   age: i32
     /// # }
-    /// # db.insert::<User>(&user, json!({"id": 1, "name": "Joey", "age": 10}), None).await?;
+    /// # db.insert::<User>(&user, User {id: 1, name: "Joey".to_string(), age: 10}, None).await?;
     /// db.find_many::<User>(&user, Query::eq("age", 10), None).await?;
     /// # Ok(())
     /// # }
@@ -306,19 +307,19 @@ impl Deeb {
     /// # use deeb::*;
     /// # use anyhow::Error;
     /// # use serde_json::json;
-    /// # use serde::Deserialize;
+    /// # use serde::{Serialize, Deserialize};
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
     /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
-    /// # #[derive(Deserialize)]
+    /// # #[derive(Serialize, Deserialize)]
     /// # struct User {
     /// #   id: i32,
     /// #   name: String,
     /// #   age: i32
     /// # }
-    /// # db.insert::<User>(&user, json!({"id": 1, "name": "Joey", "age": 10}), None).await?;
+    /// # db.insert::<User>(&user, User {id: 1, name: "Joey".to_string(), age: 10}, None).await?;
     /// db.delete_one(&user, Query::eq("name", "Joey"), None).await?;
     /// # Ok(())
     /// # }
@@ -398,19 +399,19 @@ impl Deeb {
     /// # use deeb::*;
     /// # use anyhow::Error;
     /// # use serde_json::json;
-    /// # use serde::Deserialize;
+    /// # use serde::{Serialize, Deserialize};
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
     /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
-    /// # #[derive(Deserialize)]
+    /// # #[derive(Serialize, Deserialize)]
     /// # struct User {
     /// #   id: i32,
     /// #   name: String,
     /// #   age: i32
     /// # }
-    /// # db.insert::<User>(&user, json!({"id": 1, "name": "Joey", "age": 10}), None).await?;
+    /// # db.insert::<User>(&user, User {id: 1, name: "Joey".to_string(), age: 10}, None).await?;
     /// db.update_one::<User>(&user, Query::eq("age", 10), json!({"age": 3}), None).await?;
     /// # Ok(())
     /// # }
@@ -453,13 +454,13 @@ impl Deeb {
     /// # use deeb::*;
     /// # use anyhow::Error;
     /// # use serde_json::json;
-    /// # use serde::Deserialize;
+    /// # use serde::{Serialize, Deserialize};
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
     /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
-    /// # #[derive(Deserialize)]
+    /// # #[derive(Serialize, Deserialize)]
     /// # struct User {
     /// #   id: i32,
     /// #   name: String,
@@ -528,21 +529,21 @@ impl Deeb {
     /// # use deeb::*;
     /// # use anyhow::Error;
     /// # use serde_json::json;
-    /// # use serde::Deserialize;
+    /// # use serde::{Serialize, Deserialize};
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
     /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
     /// let mut transaction = db.begin_transaction().await;
-    /// # #[derive(Deserialize)]
+    /// # #[derive(Serialize, Deserialize)]
     /// # struct User {
     /// #   id: i32,
     /// #   name: String,
     /// #   age: i32
     /// # }
-    /// db.insert::<User>(&user, json!({"id": 1, "name": "Steve", "age": 3}), Some(&mut transaction)).await?;
-    /// db.insert::<User>(&user, json!({"id": 2, "name": "Johnny", "age": 3}), Some(&mut transaction)).await?;
+    /// db.insert::<User>(&user, User {id: 1, name: "Steve".to_string(), age: 3}, Some(&mut transaction)).await?;
+    /// db.insert::<User>(&user, User {id: 2, name: "Johnny".to_string(), age: 3}, Some(&mut transaction)).await?;
     /// db.commit(&mut transaction).await?;
     /// # Ok(())
     /// # }
@@ -693,19 +694,19 @@ impl Deeb {
     /// # use deeb::*;
     /// # use anyhow::Error;
     /// # use serde_json::json;
-    /// # use serde::Deserialize;
+    /// # use serde::{Serialize, Deserialize};
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
     /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
-    /// # #[derive(Deserialize)]
+    /// # #[derive(Serialize, Deserialize)]
     /// # struct User {
     /// #   id: i32,
     /// #   name: String,
     /// #   age: i32
     /// # }
-    /// # db.insert::<User>(&user, json!({"id": 1, "name": "Joey", "age": 10}), None).await?;
+    /// # db.insert::<User>(&user, User {id: 1, name: "Joey".to_string(), age: 10}, None).await?;
     /// db.drop_key(&user, "age").await?;
     /// # Ok(())
     /// # }

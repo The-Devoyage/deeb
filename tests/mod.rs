@@ -3,20 +3,20 @@ use deeb::*;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-#[derive(Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
 struct User {
     id: i32,
     name: String,
     age: f32,
 }
 
-#[derive(Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
 struct Comment {
     user_id: i32,
     comment: String,
 }
 
-async fn spawn_deeb() -> Result<(Deeb, Entity, Entity), Error> {
+async fn spawn_deeb() -> Result<(Deeb, Entity, Entity, Entity), Error> {
     let db = Deeb::new();
 
     // Define entities
@@ -26,45 +26,100 @@ async fn spawn_deeb() -> Result<(Deeb, Entity, Entity), Error> {
         .associate(&mut comment, "user_id", Some("user_comment"))
         .map_err(|e| anyhow::anyhow!(e))?;
 
+    let user_address = Entity::new("user_address");
+
     // Add instances
     db.add_instance(
         "user",
         "./tests/test.json",
-        vec![user.clone(), comment.clone()],
+        vec![user.clone(), comment.clone(), user_address.clone()],
     )
     .await?;
 
     db.delete_many(&user, Query::All, None).await?;
     db.delete_many(&comment, Query::All, None).await?;
+    // db.delete_many(&user_address, Query::All, None).await?;
 
     // Populate initial data
-    db.insert::<User>(&user, json!({"id": 1, "name": "oliver", "age": 0.5}), None)
-        .await?;
     db.insert::<User>(
         &user,
-        json!({"id": 2, "name": "magnolia", "age": 0.5}),
+        User {
+            id: 1,
+            name: "oliver".to_string(),
+            age: 0.5,
+        },
         None,
     )
     .await?;
-    db.insert::<User>(&user, json!({"id": 3, "name": "olliard", "age": 0.5}), None)
-        .await?;
+    db.insert::<User>(
+        &user,
+        User {
+            id: 2,
+            name: "magnolia".to_string(),
+            age: 0.5,
+        },
+        None,
+    )
+    .await?;
+    db.insert::<User>(
+        &user,
+        User {
+            id: 3,
+            name: "olliard".to_string(),
+            age: 0.5,
+        },
+        None,
+    )
+    .await?;
 
-    db.insert::<Comment>(&comment, json!({"user_id": 1, "comment": "Hello"}), None)
-        .await?;
-    db.insert::<Comment>(&comment, json!({"user_id": 1, "comment": "Hi"}), None)
-        .await?;
-    db.insert::<Comment>(&comment, json!({"user_id": 2, "comment": "Hey"}), None)
-        .await?;
-    db.insert::<Comment>(&comment, json!({"user_id": 3, "comment": "Hola"}), None)
-        .await?;
+    db.insert::<Comment>(
+        &comment,
+        Comment {
+            user_id: 1,
+            comment: "Hello".to_string(),
+        },
+        None,
+    )
+    .await?;
+    db.insert::<Comment>(
+        &comment,
+        Comment {
+            user_id: 1,
+            comment: "Hi".to_string(),
+        },
+        None,
+    )
+    .await?;
+    db.insert::<Comment>(
+        &comment,
+        Comment {
+            user_id: 2,
+            comment: "Hey".to_string(),
+        },
+        None,
+    )
+    .await?;
+    db.insert::<Comment>(
+        &comment,
+        Comment {
+            user_id: 3,
+            comment: "Hola".to_string(),
+        },
+        None,
+    )
+    .await?;
 
-    Ok((db, user, comment))
+    Ok((db, user, comment, user_address))
 }
 
 #[tokio::test]
 async fn insert_one() -> Result<(), Error> {
-    let (db, user, _comment) = spawn_deeb().await?;
-    let value = json!({"id": 12345, "name": "nick", "age": 35});
+    let (db, user, _comment, ..) = spawn_deeb().await?;
+    let value = User {
+        id: 12345,
+        name: "nick".to_string(),
+        age: 35.0,
+    };
     let result = db.insert::<User>(&user, value, None).await?;
     assert_eq!(
         result,
@@ -75,7 +130,7 @@ async fn insert_one() -> Result<(), Error> {
 
 #[tokio::test]
 async fn insert_many() -> Result<(), Error> {
-    let (db, user, _comment) = spawn_deeb().await?;
+    let (db, user, _comment, ..) = spawn_deeb().await?;
     let values = vec![
         json!({"name": "jack", "age": 21, "id": 92884}),
         json!({"name": "jull", "age": 20, "id": 923489}),
@@ -94,7 +149,7 @@ async fn insert_many() -> Result<(), Error> {
 
 #[tokio::test]
 async fn find_one() -> Result<(), Error> {
-    let (db, user, _comment) = spawn_deeb().await?;
+    let (db, user, _comment, ..) = spawn_deeb().await?;
     let query = Query::eq("name", "oliver");
     let result = db.find_one::<User>(&user, query, None).await?;
     assert_eq!(
@@ -108,7 +163,7 @@ async fn find_one() -> Result<(), Error> {
 
 #[tokio::test]
 async fn find_many() -> Result<(), Error> {
-    let (db, user, _comment) = spawn_deeb().await?;
+    let (db, user, _comment, ..) = spawn_deeb().await?;
     let query = Query::eq("age", 0.5);
     let result = db
         .find_many::<User>(&user, query, None)
@@ -136,7 +191,7 @@ async fn find_many() -> Result<(), Error> {
 
 #[tokio::test]
 async fn delete_one() -> Result<(), Error> {
-    let (db, user, _comment) = spawn_deeb().await?;
+    let (db, user, _comment, ..) = spawn_deeb().await?;
     let query = Query::eq("name", "oliver");
     let result = db
         .delete_one(&user, query, None)
@@ -149,7 +204,7 @@ async fn delete_one() -> Result<(), Error> {
 
 #[tokio::test]
 async fn delete_many() -> Result<(), Error> {
-    let (db, user, _comment) = spawn_deeb().await?;
+    let (db, user, _comment, ..) = spawn_deeb().await?;
     let query = Query::eq("age", 0.5);
     let result = db
         .delete_many(&user, query, None)
@@ -161,23 +216,35 @@ async fn delete_many() -> Result<(), Error> {
 
 #[tokio::test]
 async fn transaction() -> Result<(), Error> {
-    let (db, user, _comment) = spawn_deeb().await?;
+    let (db, user, _comment, ..) = spawn_deeb().await?;
     let mut transaction = db.begin_transaction().await;
     db.insert::<User>(
         &user,
-        json!({"name": "Al", "age": 45.0, "id": 255}),
+        User {
+            name: "Al".to_string(),
+            age: 45.0,
+            id: 255,
+        },
         Some(&mut transaction),
     )
     .await?;
     db.insert::<User>(
         &user,
-        json!({"name": "Peg", "age": 40.0, "id": 256}),
+        User {
+            name: "Peg".to_string(),
+            age: 40.0,
+            id: 256,
+        },
         Some(&mut transaction),
     )
     .await?;
     db.insert::<User>(
         &user,
-        json!({"name": "Bud", "age": 18.0, "id": 257}),
+        User {
+            name: "Bud".to_string(),
+            age: 18.0,
+            id: 257,
+        },
         Some(&mut transaction),
     )
     .await?;
@@ -211,7 +278,7 @@ async fn transaction() -> Result<(), Error> {
 
 #[tokio::test]
 async fn update_one() -> Result<(), Error> {
-    let (db, user, _comment) = spawn_deeb().await?;
+    let (db, user, _comment, ..) = spawn_deeb().await?;
     let query = Query::eq("name", "oliver");
     let update = json!({"name": "olivia"});
     let result = db.update_one::<User>(&user, query, update, None).await?;
@@ -228,7 +295,7 @@ async fn update_one() -> Result<(), Error> {
 
 #[tokio::test]
 async fn update_many() -> Result<(), Error> {
-    let (db, user, _comment) = spawn_deeb().await?;
+    let (db, user, _comment, ..) = spawn_deeb().await?;
     let query = Query::eq("age", 0.5);
     let update = json!({"age": 1.0});
     let result = db
@@ -473,7 +540,7 @@ async fn test_all() {
     assert!(query.matches(&value).unwrap());
 }
 
-#[derive(Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 #[allow(dead_code)]
 struct UserWithoutAge {
     id: i32,
@@ -482,7 +549,7 @@ struct UserWithoutAge {
 
 #[tokio::test]
 async fn drop_key() -> Result<(), Error> {
-    let (db, user, _comment) = spawn_deeb().await?;
+    let (db, user, _comment, ..) = spawn_deeb().await?;
     db.drop_key(&user, "age").await?;
     let query = Query::eq("name", "oliver");
     let result = db
@@ -514,7 +581,7 @@ struct Address {
     meta: Option<AddressMeta>,
 }
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 #[allow(dead_code)]
 struct UserAddress {
     name: String,
@@ -523,29 +590,37 @@ struct UserAddress {
 
 #[tokio::test]
 async fn drop_key_nested() -> Result<(), Error> {
-    let (db, user, _comment) = spawn_deeb().await?;
+    let (db, user, _comment, ..) = spawn_deeb().await?;
     db.delete_many(&user, Query::All, None).await?;
     db.insert::<UserAddress>(
         &user,
-        json!({
-        "name": "oliver",
-        "address": {
-            "city": "lagos",
-            "country": "nigeria",
-            "meta": {"zip": 10001, "additional": "info"}
-        }}),
+        UserAddress {
+            name: "oliver".to_string(),
+            address: Address {
+                city: "lagos".to_string(),
+                country: "nigeria".to_string(),
+                meta: Some(AddressMeta {
+                    zip: 10001,
+                    additional: Some("info".to_string()),
+                }),
+            },
+        },
         None,
     )
     .await?;
     db.insert::<UserAddress>(
         &user,
-        json!({
-        "name": "olivia",
-        "address": {
-            "city": "lagos",
-            "country": "nigeria",
-            "meta": {"zip": 10001, "additional": "info"}
-        }}),
+        UserAddress {
+            name: "olivia".to_string(),
+            address: Address {
+                city: "lagos".to_string(),
+                country: "nigeria".to_string(),
+                meta: Some(AddressMeta {
+                    zip: 10001,
+                    additional: Some("info".to_string()),
+                }),
+            },
+        },
         None,
     )
     .await?;
@@ -559,7 +634,7 @@ async fn drop_key_nested() -> Result<(), Error> {
     Ok(())
 }
 
-#[derive(Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 struct UserStatus {
     id: i32,
     name: String,
@@ -571,7 +646,7 @@ struct UserStatus {
 // TODO: Should skip the operation for that record
 #[tokio::test]
 async fn add_key() -> Result<(), Error> {
-    let (db, user, _comment) = spawn_deeb().await?;
+    let (db, user, _comment, ..) = spawn_deeb().await?;
     db.add_key(&user, "status", true).await?;
     let query = Query::eq("name", "oliver");
     let result = db
@@ -590,39 +665,69 @@ async fn add_key() -> Result<(), Error> {
     Ok(())
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 #[allow(dead_code)]
-struct UserName {
+struct UserAddressBefore {
     name: String,
     address: Option<Address>,
 }
 
 #[tokio::test]
 async fn add_key_nested() -> Result<(), Error> {
-    let (db, user, _comment) = spawn_deeb().await?;
-    db.delete_many(&user, Query::All, None).await?;
+    let (db, user_address, ..) = spawn_deeb().await?;
+    db.delete_many(&user_address, Query::All, None).await?;
     db.insert::<UserAddress>(
-        &user,
-        json!({"name": "oliver", "address": {"city": "lagos", "country": "nigeria"}}),
+        &user_address,
+        UserAddress {
+            name: "oliver".to_string(),
+            address: Address {
+                city: "lagos".to_string(),
+                country: "nigeria".to_string(),
+                meta: None,
+            },
+        },
         None,
     )
     .await?;
     db.insert::<UserAddress>(
-        &user,
-        json!({"name": "oliver", "address": {"city": "lagos", "country": "nigeria"}}),
+        &user_address,
+        UserAddress {
+            name: "oliver".to_string(),
+            address: Address {
+                city: "lagos".to_string(),
+                country: "nigeria".to_string(),
+                meta: None,
+            },
+        },
         None,
     )
     .await?;
-    db.insert::<UserName>(&user, json!({"name": "olivia" }), None)
+
+    println!("BEFORE");
+    db.insert::<UserAddressBefore>(
+        &user_address,
+        UserAddressBefore {
+            name: "olivia".to_string(),
+            address: None,
+        },
+        None,
+    )
+    .await?;
+    println!("AFTER");
+
+    db.add_key(&user_address, "address.meta.zip", 10001).await?;
+    db.add_key(&user_address, "address.meta.additional", "Yo")
         .await?;
-    db.add_key(&user, "address.meta.zip", 10001).await?;
-    db.add_key(&user, "address.meta.additional", "Yo").await?;
+
+    println!("KEY ADDED");
+
     let query = Query::eq("address.meta.zip", 10001);
     let result = db
-        .find_one::<UserName>(&user, query, None)
+        .find_one::<UserAddress>(&user_address, query, None)
         .await?
         .ok_or_else(|| Error::msg("Expected type but found none."))?;
-    assert_eq!(result.address.unwrap().meta.unwrap().zip, 10001);
+    println!("SEARCHED: {:?}", result);
+    assert_eq!(result.address.meta.unwrap().zip, 10001);
     Ok(())
 }
 
@@ -635,7 +740,7 @@ async fn load_meta() -> Result<(), Error> {
         .await?
         .ok_or_else(|| Error::msg("Expected type but found none."))?;
 
-    assert_eq!(meta.len(), 2);
+    assert_eq!(meta.len(), 3);
     assert_eq!(meta[0].name, "user".into());
     assert_eq!(meta[1].name, "comment".into());
     // primary key
@@ -650,7 +755,7 @@ async fn load_meta() -> Result<(), Error> {
     Ok(())
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 #[allow(dead_code)]
 struct UserWithComments {
     id: i32,
@@ -661,7 +766,7 @@ struct UserWithComments {
 
 #[tokio::test]
 async fn find_by_association() -> Result<(), Error> {
-    let (db, user, comment) = spawn_deeb().await?;
+    let (db, user, comment, ..) = spawn_deeb().await?;
     let query = Query::associated(comment.clone(), Query::eq("user_comment.comment", "Hello"));
     let result = db
         .find_many::<UserWithComments>(&user, query, None)

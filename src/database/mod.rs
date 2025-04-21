@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::fs::{self, OpenOptions};
 use std::io::{Read, Write};
 
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 
 use self::entity::EntityName;
 
@@ -538,8 +538,8 @@ impl Database {
                 json.as_object_mut()
                     .unwrap()
                     .insert(key.to_string(), json!({}));
-                let has_key = current.as_object().unwrap().contains_key(*key);
-                if !has_key {
+                let has_key = current.as_object().unwrap();
+                if !has_key.contains_key(*key) || has_key.get(*key).unwrap().is_null() {
                     current
                         .as_object_mut()
                         .unwrap()
@@ -548,6 +548,9 @@ impl Database {
                 current = current.get_mut(*key).unwrap();
             }
             let key = keys.last().unwrap().to_owned();
+            if !current.is_object() {
+                *current = Value::Object(Map::new());
+            }
             current
                 .as_object_mut()
                 .unwrap()

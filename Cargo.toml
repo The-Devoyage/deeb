@@ -3,7 +3,7 @@ name = "deeb"
 version = "0.0.5"
 edition = "2021"
 license = "MIT"
-description = "An ACID compliant JSON database built with Rust"
+description = "An ACIDish compliant JSON database built with Rust"
 homepage = "https://www.github.com/the-devoyage/deeb"
 repository = "https://www.github.com/the-devoyage/deeb"
 

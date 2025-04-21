@@ -37,17 +37,17 @@
 //! ```rust
 //! use deeb::*;
 //! use serde_json::json;
-//! use serde::Deserialize;
+//! use serde::{Serialize, Deserialize};
 //! use anyhow::Error;
 //!
-//! #[derive(Deserialize)]
+//! #[derive(Serialize, Deserialize)]
 //! struct User {
 //!     id: i32,
 //!     name: String,
 //!     age: i32
 //! }
 //!
-//! #[derive(Deserialize)]
+//! #[derive(Serialize, Deserialize)]
 //! struct Comment {
 //!     user_id: i32,
 //!     comment: String
@@ -67,18 +67,18 @@
 //!     .await?;
 //!
 //!    // Single Operations
-//!    db.insert::<User>(&user, json!({"id": 1, "name": "George", "age": 10}), None).await?;
+//!    db.insert::<User>(&user, User {id: 1, name: "George".to_string(), age: 10}, None).await?;
 //!    db.find_one::<User>(&user, Query::eq("name", "George"), None).await?;
 //!
 //!    // Perform a transaction
 //!    let mut transaction = db.begin_transaction().await;
 //!
 //!    // Insert data into the database
-//!    db.insert::<User>(&user, json!({"id": 1, "name": "Steve", "age": 3}), Some(&mut transaction)).await?;
-//!    db.insert::<User>(&user, json!({"id": 2, "name": "Johnny", "age": 3}), Some(&mut transaction)).await?;
+//!    db.insert::<User>(&user, User {id: 1, name: "Steve".to_string(), age: 3}, Some(&mut transaction)).await?;
+//!    db.insert::<User>(&user, User {id: 2, name: "Johnny".to_string(), age: 3}, Some(&mut transaction)).await?;
 //!
-//!    db.insert::<Comment>(&comment, json!({"user_id": 1, "comment": "Hello"}), Some(&mut transaction)).await?;
-//!    db.insert::<Comment>(&comment, json!({"user_id": 1, "comment": "Hi"}), Some(&mut transaction)).await?;
+//!    db.insert::<Comment>(&comment, Comment {user_id: 1, comment: "Hello".to_string()}, Some(&mut transaction)).await?;
+//!    db.insert::<Comment>(&comment, Comment {user_id: 1, comment: "Hi".to_string()}, Some(&mut transaction)).await?;
 //!
 //!    // Query the database
 //!    let query = Query::eq("name", "Steve");
