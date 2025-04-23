@@ -289,12 +289,23 @@ async fn transaction() -> Result<(), Error> {
     Ok(())
 }
 
+#[derive(Serialize)]
+struct UpdateUser {
+    name: Option<String>,
+    age: Option<f32>,
+}
+
 #[tokio::test]
 async fn update_one() -> Result<(), Error> {
     let (db, user, _comment, ..) = spawn_deeb().await?;
     let query = Query::eq("name", "oliver");
-    let update = json!({"name": "olivia"});
-    let result = db.update_one::<User>(&user, query, update, None).await?;
+    let update = UpdateUser {
+        name: Some("olivia".to_string()),
+        age: None,
+    };
+    let result = db
+        .update_one::<User, UpdateUser>(&user, query, update, None)
+        .await?;
     assert_eq!(
         result,
         Some(User {
@@ -310,9 +321,12 @@ async fn update_one() -> Result<(), Error> {
 async fn update_many() -> Result<(), Error> {
     let (db, user, _comment, ..) = spawn_deeb().await?;
     let query = Query::eq("age", 0.5);
-    let update = json!({"age": 1.0});
+    let update = UpdateUser {
+        age: Some(1.0),
+        name: None,
+    };
     let result = db
-        .update_many(&user, query, update, None)
+        .update_many::<User, UpdateUser>(&user, query, update, None)
         .await?
         .ok_or_else(|| Error::msg("Expected vector but received none."))?;
     assert!(

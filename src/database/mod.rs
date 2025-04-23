@@ -178,7 +178,6 @@ impl Database {
                 file.read_to_end(buf)?;
                 instance.data = serde_json::from_slice(buf)?;
                 fs2::FileExt::unlock(&file)?
-
             }
             Err(_) => {
                 let mut file = fs::File::create(&instance.file_path)?;
@@ -393,7 +392,9 @@ impl Database {
                 };
                 let mut value = value.clone();
                 for (update_key, update_value) in update_value {
-                    value.insert(update_key, update_value);
+                    if !update_value.is_null() {
+                        value.insert(update_key, update_value);
+                    }
                 }
                 Value::Object(value)
             }
@@ -436,7 +437,9 @@ impl Database {
                     };
                     let mut value = value.clone();
                     for (update_key, update_value) in update_value {
-                        value.insert(update_key, update_value);
+                        if !update_value.is_null() {
+                            value.insert(update_key, update_value);
+                        }
                     }
                     Value::Object(value)
                 }
@@ -461,7 +464,7 @@ impl Database {
             file.lock_exclusive()?;
             file.set_len(0)?;
             file.write_all(serde_json::to_string(&instance.data)?.as_bytes())?;
-            file.unlock()?;
+            fs2::FileExt::unlock(&file)?
         }
         Ok(())
     }

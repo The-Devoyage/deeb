@@ -29,8 +29,9 @@
 //!
 //! **Terminology**
 //! - Instance: A single .json file managed by Deeb. Each instance can store multiple entities and serves as a lightweight, self-contained database.
-//! - Entity: Similar to a table (SQL) or collection (MongoDB), an entity groups documents of a consistent type within an instance.
-//! - Document: An individual record within an entity. Documents are stored as JSON objects and represent a single unit of data (e.g., a user, message, or task).
+//! - Collection: Similar to a table (SQL) or collection (MongoDB), an array of entity documents of a consistent type within an instance.
+//! - Entity: The `type` of document within a collection, for example User or Comment.
+//! - Document: An individual record representing an entity. Documents are stored as JSON objects and represent a single unit of data (e.g., a user, message, or task).
 //!
 //! 3. Create a deeb instance and perform operations.
 //!
@@ -45,6 +46,12 @@
 //!     id: i32,
 //!     name: String,
 //!     age: i32
+//! }
+//!
+//! #[derive(Serialize)]
+//! struct UpdateUser {
+//!     name: Option<String>,
+//!     age: Option<i32>
 //! }
 //!
 //! #[derive(Serialize, Deserialize)]
@@ -86,8 +93,8 @@
 //!
 //!    // Update the database
 //!    let query = Query::eq("name", "Steve");
-//!    let update = json!({"age": 5});
-//!    db.update_one::<User>(&user, query, update, Some(&mut transaction)).await?;
+//!    let update = UpdateUser { age: Some(5), name: None };
+//!    db.update_one::<User, UpdateUser>(&user, query, update, Some(&mut transaction)).await?;
 //!
 //!    // Delete from the database
 //!    let query = Query::eq("name", "Johnny");

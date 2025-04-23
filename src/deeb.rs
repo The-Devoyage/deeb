@@ -415,23 +415,32 @@ impl Deeb {
     /// #   name: String,
     /// #   age: i32
     /// # }
+    /// # #[derive(Serialize)]
+    /// # struct UpdateUser {
+    /// #   age: Option<i32>,
+    /// #   name: Option<String>
+    /// # }
     /// # db.insert::<User>(&user, User {id: 1, name: "Joey".to_string(), age: 10}, None).await?;
-    /// db.update_one::<User>(&user, Query::eq("age", 10), json!({"age": 3}), None).await?;
+    /// db.update_one::<User, UpdateUser>(&user, Query::eq("age", 10), UpdateUser{age: Some(3), name: None}, None).await?;
     /// # Ok(())
     /// # }
     /// ```
     #[allow(dead_code)]
-    pub async fn update_one<T>(
+    pub async fn update_one<T, K>(
         &self,
         entity: &Entity,
         query: Query,
-        update_value: Value,
+        update_value: K,
         transaction: Option<&mut Transaction>,
     ) -> Result<Option<T>, Error>
     where
         T: DeserializeOwned,
+        K: Serialize,
     {
         debug!("Updating one");
+
+        let update_value = serde_json::to_value(update_value)?;
+
         if let Some(transaction) = transaction {
             let operation = Operation::UpdateOne {
                 entity: entity.clone(),
@@ -470,23 +479,30 @@ impl Deeb {
     /// #   name: String,
     /// #   age: i32
     /// # }
-    /// # db.update_many::<User>(&user, Query::eq("age", 10), json!({"age": 3}), None).await?;
-    /// db.update_many::<User>(&user, Query::eq("age", 10), json!({"age": 3}), None).await?;
+    /// # #[derive(Serialize)]
+    /// # struct UpdateUser {
+    /// #   age: Option<i32>,
+    /// #   name: Option<String>
+    /// # }
+    /// # db.insert_many::<User>(&user, vec![User {id: 1938, name: "Tula".to_string(), age: 7}, User {id: 13849, name: "Bulla".to_string(), age: 7}], None).await?;
+    /// db.update_many::<User, UpdateUser>(&user, Query::eq("age", 7), UpdateUser {age: Some(8), name: None}, None).await?;
     /// # Ok(())
     /// # }
     /// ```
     #[allow(dead_code)]
-    pub async fn update_many<T>(
+    pub async fn update_many<T, K>(
         &self,
         entity: &Entity,
         query: Query,
-        update_value: Value,
+        update_value: K,
         transaction: Option<&mut Transaction>,
     ) -> Result<Option<Vec<T>>, Error>
     where
         T: DeserializeOwned,
+        K: Serialize,
     {
         debug!("Updating many");
+        let update_value = serde_json::to_value(update_value)?;
         if let Some(transaction) = transaction {
             let operation = Operation::UpdateMany {
                 entity: entity.clone(),
@@ -693,7 +709,7 @@ impl Deeb {
     // Management
 
     /// Delete Key
-    ///
+    /// A utility method to remove a key from every document in the collection.
     /// ```
     /// # use deeb::*;
     /// # use anyhow::Error;
