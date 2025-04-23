@@ -1,5 +1,11 @@
 # Deeb Changelog
 
+## v0.0.7
+
+### Fixed
+
+- Update Readme and Republish
+
 ## v0.0.6
 
 ### Added

@@ -1,7 +1,7 @@
 //! # Deeb - JSON Database
 //!
-//! Prounced how you like, Deeb is an Acid(ish) Compliant JSON based database for small
-//! websites and fast prototyping.
+//! Call it “Deeb,” “D-b,” or “That Cool JSON Thing”—this ACID Compliant database 
+//! is perfect for tiny sites and rapid experiments.
 //!
 //! Inspired by flexibility of Mongo and light weight of SqLite, Deeb is a tool
 //! that turns a set of JSON files into a light weight database.
@@ -108,7 +108,7 @@
 //!
 //! ## Features
 //!
-//! - **ACIDish Compliant**: Deeb is an ACIDish compliant database. We get close as we can for a light weight JSON based DB.
+//! - **ACID Compliant**: Deeb is an ACID compliant database. We get close as we can for a light weight JSON based DB.
 //! - **JSON-Based Storage**: Deeb uses lightweight JSON files as the underlying data store, providing human-readable structure and seamless integration with any system that speaks JSON.
 //! - **Schemaless**: Deeb doesn't require a predefined schema like traditional SQL or strongly-typed NoSQL databases. However, by using Rust generics, you can enforce type safety at compile time. This means Deeb stays flexible at runtime, while giving you confidence at build time.
 //! - **Transactions**: Perform multiple operations as a single unit — commit them all at once or roll them back if something fails.
