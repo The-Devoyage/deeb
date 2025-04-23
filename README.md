@@ -1,15 +1,15 @@
 # Deeb - JSON Database
 
-Prounced how you like, Deeb is an Acid(ish) Compliant JSON based database for small 
-websites and fast prototyping. 
+Prounced how you like, Deeb is an Acid(ish) Compliant JSON based database for small
+websites and fast prototyping.
 
-Inspired by flexibility of Mongo and light weight of SqLite, Deeb is a tool 
-that turns a set of JSON files into a light weight database. 
+Inspired by flexibility of Mongo and light weight of SqLite, Deeb is a tool
+that turns a set of JSON files into a light weight database.
 
-Deeb's ability to turn groups JSON files into a database allows you to simply 
+Deeb's ability to turn groups JSON files into a database allows you to simply
 open a json file and edit as needed.
 
-Check out the quick start below, or the [docs](https://docs.rs/deeb/latest/deeb/) 
+Check out the quick start below, or the [docs](https://docs.rs/deeb/latest/deeb/)
 to learn more.
 
 ## Quick Start
@@ -20,7 +20,7 @@ to learn more.
 cargo add deeb
 ```
 
-2. Optionally, Create a JSON file for your database. Deeb will also create one for you if you like. 
+2. Optionally, Create a JSON file for your database. Deeb will also create one for you if you like.
 
 ```bash
 echo '{"user": []}' > user.json
@@ -29,60 +29,80 @@ echo '{"comment": []}' > comment.json
 
 **Terminology**
 - Instance: A single .json file managed by Deeb. Each instance can store multiple entities and serves as a lightweight, self-contained database.
-- Entity: Similar to a table (SQL) or collection (MongoDB), an entity groups documents of a consistent type within an instance.
-- Document: An individual record within an entity. Documents are stored as JSON objects and represent a single unit of data (e.g., a user, message, or task).
+- Collection: Similar to a table (SQL) or collection (MongoDB), an array of entity documents of a consistent type within an instance.
+- Entity: The `type` of document within a collection, for example User or Comment.
+- Document: An individual record representing an entity. Documents are stored as JSON objects and represent a single unit of data (e.g., a user, message, or task).
 
 3. Create a deeb instance and perform operations.
 
 ```rust
 use deeb::*;
 use serde_json::json;
+use serde::{Serialize, Deserialize};
 use anyhow::Error;
+
+#[derive(Serialize, Deserialize)]
+struct User {
+    id: i32,
+    name: String,
+    age: i32
+}
+
+#[derive(Serialize)]
+struct UpdateUser {
+    name: Option<String>,
+    age: Option<i32>
+}
+
+#[derive(Serialize, Deserialize)]
+struct Comment {
+    user_id: i32,
+    comment: String
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-     // Set up a new Deeb instance
-    let db = Deeb::new();
+   // Create a new entity
+   let user = Entity::new("user");
+   let comment = Entity::new("comment");
 
-    // Create a new entity
-    let user = Entity::new("user");
-    let comment = Entity::new("comment");
+    // Set up a new Deeb instance
+   let db = Deeb::new();
+   db.add_instance("test", "./user.json", vec![user.clone()])
+    .await?;
+   db.add_instance("test2", "./comment.json", vec![comment.clone()])
+    .await?;
 
-    db.add_instance("test", "./user.json", vec![user.clone()])
-        .await?;
-    db.add_instance("test2", "./comment.json", vec![comment.clone()])
-        .await?;
+   // Single Operations
+   db.insert::<User>(&user, User {id: 1, name: "George".to_string(), age: 10}, None).await?;
+   db.find_one::<User>(&user, Query::eq("name", "George"), None).await?;
 
-    // Single Operations
-    db.insert(&user, json!({"id": 1, "name": "Joey", "age": 10}), None).await?;
-    db.find_one(&user, Query::eq("name", "Joey"), None).await?;
+   // Perform a transaction
+   let mut transaction = db.begin_transaction().await;
 
-    // Perform a transaction
-    let mut transaction = db.begin_transaction().await;
+   // Insert data into the database
+   db.insert::<User>(&user, User {id: 1, name: "Steve".to_string(), age: 3}, Some(&mut transaction)).await?;
+   db.insert::<User>(&user, User {id: 2, name: "Johnny".to_string(), age: 3}, Some(&mut transaction)).await?;
 
-    // Insert data into the database
-    db.insert(&user, json!({"id": 1, "name": "Steve", "age": 3}), Some(&mut transaction)).await?;
-    db.insert(&user, json!({"id": 2, "name": "Johnny", "age": 3}), Some(&mut transaction)).await?;
+   db.insert::<Comment>(&comment, Comment {user_id: 1, comment: "Hello".to_string()}, Some(&mut transaction)).await?;
+   db.insert::<Comment>(&comment, Comment {user_id: 1, comment: "Hi".to_string()}, Some(&mut transaction)).await?;
 
-    db.insert(&comment, json!({"user_id": 1, "comment": "Hello"}), Some(&mut transaction)).await?;
-    db.insert(&comment, json!({"user_id": 1, "comment": "Hi"}), Some(&mut transaction)).await?;
+   // Query the database
+   let query = Query::eq("name", "Steve");
+   let result = db.find_one::<User>(&user, query, Some(&mut transaction)).await?;
 
-    // Query the database
-    let query = Query::like("name", "Steve");
-    let result = db.find_one(&user, query, Some(&mut transaction)).await?;
+   // Update the database
+   let query = Query::eq("name", "Steve");
+   let update = UpdateUser { age: Some(5), name: None };
+   db.update_one::<User, UpdateUser>(&user, query, update, Some(&mut transaction)).await?;
 
-    // Update the database
-    let query = Query::ne("name", "Steve");
-    let update = json!({"name": "Steve", "age": 3});
-    db.update_one(&user, query, update, Some(&mut transaction)).await?;
+   // Delete from the database
+   let query = Query::eq("name", "Johnny");
+   db.delete_one(&user, query, Some(&mut transaction)).await?;
 
-    // Delete from the database
-    let query = Query::eq("name", "Johnny");
-    db.delete_one(&user, query, Some(&mut transaction)).await?;
+   db.commit(&mut transaction).await?;
 
-    db.commit(&mut transaction).await?;
-
-    Ok(())
+   Ok(())
 }
 ```
 
@@ -112,3 +132,47 @@ async fn main() -> Result<(), Error> {
 - [ ] Improve Transactions - Should return updated object instead of Option<T>
 - [ ] Implement traits and proc macros to streamline usage - `User.find_many(...)`
 
+
+## Deeb
+
+### Operations
+
+- `insert`: [Insert](deeb::Deeb::insert) a new document into the database
+- `find_one`: [Find](deeb::Deeb::find_one) a single document in the database
+- `find_many`: [Find multiple](deeb::Deeb::find_many) documents in the database
+- `update_one`: [Update a single](deeb::Deeb::update_one) document in the database
+- `update_many`: [Update multiple](deeb::Deeb::update_many) documents in the database
+- `delete_one`: [Delete a single](deeb::Deeb::delete_one) document in the database
+- `delete_many`: [Delete multiple](deeb::Deeb::delete_many) documents in the database
+
+### Queries
+
+- `eq`: [Equal](database::query::Query::eq) - Find documents based on exact match.
+- `like`: [Like](database::query::Query::like) - Find documents based on like match.
+- `ne`: [Not Equal](database::query::Query::ne) - Find documents based on not equal match.
+- `gt`: [Greater Than](database::query::Query::gt) - Find documents based on greater than match.
+- `lt`: [Less Than](database::query::Query::lt) - Find documents based on less than match.
+- `gte`: [Greater Than or Equal](database::query::Query::gte) - Find documents based on greater than or equal match.
+- `lte`: [Less Than or Equal](database::query::Query::lte) - Find documents based on less than or equal match.
+- `and`: [And](database::query::Query::and) - Find documents based on multiple conditions.
+- `or`: [Or](database::query::Query::or) - Find documents based on multiple conditions.
+- `all`: [All](database::query::Query::all) - Return all documents.
+- `associated`: [Associated](database::query::Query::associated) - Find documents based on association.
+
+### Transactions
+
+- `begin_transaction`: [Begin](deeb::Deeb::begin_transaction) a new transaction
+- `commit`: [Commit](deeb::Deeb::commit) a transaction
+
+### Data Management
+
+- `add_key` : [Add a new key](deeb::Deeb::add_key) to the database
+- `drop_key` : [Drop a key](deeb::Deeb::drop_key) from the database
+
+mod database;
+mod deeb;
+
+pub use crate::{
+    database::{entity::Entity, query::Query},
+    deeb::Deeb,
+};
