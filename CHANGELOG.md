@@ -4,7 +4,7 @@
 
 ### Added
 
-- Typed inserts - Insert method now requires the matching type passed into the generic.
+- **BREAKING** Typed Inserts and Updates - Inserts and Updates now require a struct which implements DeserializedOwned or Serialize to provide safer handling of typed data.
 
 ### Fixed
 
