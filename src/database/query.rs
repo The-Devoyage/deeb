@@ -1,6 +1,5 @@
+use crate::entity::Entity;
 use serde_json::Value;
-
-use crate::Entity;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Key(String);
@@ -183,7 +182,7 @@ impl Query {
 
     /// Create a new query that matches documents based on associated entity.
     /// ```
-    /// use deeb::*;
+    /// use deeb::{entity::Entity, *};
     /// let user = Entity::new("user");
     /// let comment = Entity::new("comment");
     /// let query = Query::associated(comment, Query::eq("user_id", 1));

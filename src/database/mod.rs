@@ -1,5 +1,5 @@
 use anyhow::Error;
-use entity::Entity;
+use crate::entity::{EntityName, Entity};
 use fs2::FileExt;
 use log::*;
 use name::Name;
@@ -10,9 +10,6 @@ use std::io::{Read, Write};
 
 use serde_json::{json, Map, Value};
 
-use self::entity::EntityName;
-
-pub mod entity;
 pub mod name;
 pub mod query;
 pub mod transaction;
@@ -268,6 +265,7 @@ impl Database {
         let instance = self
             .get_instance_by_entity(entity)
             .ok_or_else(|| Error::msg("Entity not found"))?;
+        println!("FINDING: {:?}", instance);
         let data = instance
             .data
             .get(&entity.name)

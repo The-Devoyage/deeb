@@ -20,6 +20,8 @@ uuid = { version= "1.8.0", features = ["v4"] }
 log = "0.4.21"
 env_logger = "0.11.3"
 fs2 = "0.4.3"
+deeb_macros = { path = "./deeb_macros" }
+deeb_core = { path = "./deeb_core" }
 
 [dev-dependencies]
 criterion = { version = "0.4", features = ["html_reports", "async_tokio"] }

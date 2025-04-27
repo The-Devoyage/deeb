@@ -1,3 +1,4 @@
+use crate::entity::Entity;
 use anyhow::Error;
 use log::*;
 use serde::{de::DeserializeOwned, Serialize};
@@ -6,8 +7,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::database::{
-    entity::Entity, name::Name, query::Query, transaction::Transaction, Database, ExecutedValue,
-    Operation,
+    name::Name, query::Query, transaction::Transaction, Database, ExecutedValue, Operation,
 };
 
 #[derive(Clone, Debug)]
@@ -54,7 +54,7 @@ impl Deeb {
     /// ```
     ///
     /// ```
-    /// # use deeb::*;
+    /// # use deeb::{entity::Entity, *};
     /// # use anyhow::Error;
     /// # use serde_json::json;
     /// # #[tokio::main]
@@ -92,7 +92,7 @@ impl Deeb {
     /// requires you to commit the transaction.
     ///
     /// ```
-    /// # use deeb::*;
+    /// # use deeb::{entity::Entity, *};
     /// # use anyhow::Error;
     /// # use serde::{Serialize, Deserialize};
     /// # use serde_json::json;
@@ -145,7 +145,7 @@ impl Deeb {
     /// requires you to commit the transaction.
     ///
     /// ```
-    /// # use deeb::*;
+    /// # use deeb::{entity::Entity, *};
     /// # use anyhow::Error;
     /// # use serde_json::json;
     /// # use serde::{Serialize, Deserialize};
@@ -202,7 +202,7 @@ impl Deeb {
     /// requires you to commit the transaction.
     ///
     /// ```
-    /// # use deeb::*;
+    /// # use deeb::{entity::Entity, *};
     /// # use anyhow::Error;
     /// # use serde_json::json;
     /// # use serde::{Serialize, Deserialize};
@@ -241,6 +241,7 @@ impl Deeb {
             transaction.add_operation(operation);
             return Ok(None);
         }
+        println!("Finding one: {:?}", entity);
 
         let db = self.db.read().await;
         let value = db.find_one(entity, query).ok();
@@ -256,7 +257,7 @@ impl Deeb {
     /// requires you to commit the transaction.
     ///
     /// ```
-    /// # use deeb::*;
+    /// # use deeb::{entity::Entity, *};
     /// # use anyhow::Error;
     /// # use serde_json::json;
     /// # use serde::{Serialize, Deserialize};
@@ -308,7 +309,7 @@ impl Deeb {
     /// requires you to commit the transaction.
     ///
     /// ```
-    /// # use deeb::*;
+    /// # use deeb::{entity::Entity, *};
     /// # use anyhow::Error;
     /// # use serde_json::json;
     /// # use serde::{Serialize, Deserialize};
@@ -358,7 +359,7 @@ impl Deeb {
     /// requires you to commit the transaction.
     ///
     /// ```
-    /// # use deeb::*;
+    /// # use deeb::{entity::Entity, *};
     /// # use anyhow::Error;
     /// # use serde_json::json;
     /// # #[tokio::main]
@@ -400,7 +401,7 @@ impl Deeb {
     /// requires you to commit the transaction.
     ///
     /// ```
-    /// # use deeb::*;
+    /// # use deeb::{entity::Entity, *};
     /// # use anyhow::Error;
     /// # use serde_json::json;
     /// # use serde::{Serialize, Deserialize};
@@ -464,7 +465,7 @@ impl Deeb {
     /// requires you to commit the transaction.
     ///
     /// ```
-    /// # use deeb::*;
+    /// # use deeb::{entity::Entity, *};
     /// # use anyhow::Error;
     /// # use serde_json::json;
     /// # use serde::{Serialize, Deserialize};
@@ -546,7 +547,7 @@ impl Deeb {
     /// the JSON file will be updated.
     ///
     /// ```
-    /// # use deeb::*;
+    /// # use deeb::{entity::Entity, *};
     /// # use anyhow::Error;
     /// # use serde_json::json;
     /// # use serde::{Serialize, Deserialize};
@@ -711,7 +712,7 @@ impl Deeb {
     /// Delete Key
     /// A utility method to remove a key from every document in the collection.
     /// ```
-    /// # use deeb::*;
+    /// # use deeb::{entity::Entity, *};
     /// # use anyhow::Error;
     /// # use serde_json::json;
     /// # use serde::{Serialize, Deserialize};
@@ -758,7 +759,7 @@ impl Deeb {
     /// Add key to every entity in the database.
     ///
     /// ```
-    /// # use deeb::*;
+    /// # use deeb::{entity::Entity, *};
     /// # use anyhow::Error;
     /// # use serde_json::json;
     /// # #[tokio::main]

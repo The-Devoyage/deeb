@@ -1,6 +1,6 @@
 //! # Deeb - JSON Database
 //!
-//! Call it “Deeb,” “D-b,” or “That Cool JSON Thing”—this ACID Compliant database 
+//! Call it “Deeb,” “D-b,” or “That Cool JSON Thing”—this ACID Compliant database
 //! is perfect for tiny sites and rapid experiments.
 //!
 //! Inspired by flexibility of Mongo and light weight of SqLite, Deeb is a tool
@@ -36,7 +36,7 @@
 //! 3. Create a deeb instance and perform operations.
 //!
 //! ```rust
-//! use deeb::*;
+//! use deeb::{entity::Entity, *};
 //! use serde_json::json;
 //! use serde::{Serialize, Deserialize};
 //! use anyhow::Error;
@@ -172,7 +172,6 @@
 mod database;
 mod deeb;
 
-pub use crate::{
-    database::{entity::Entity, query::Query},
-    deeb::Deeb,
-};
+pub use crate::{database::query::Query, deeb::Deeb};
+pub use deeb_core::*;
+

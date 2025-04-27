@@ -1,29 +1,42 @@
 use anyhow::Error;
-use deeb::*;
+use deeb::{entity::Entity, *};
+use deeb_macros::Collection;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Collection, Serialize, Deserialize, PartialEq, Debug)]
+#[deeb(
+    name = "comment",
+    primary_key = "id",
+)]
+struct Comment {
+    user_id: i32,
+    comment: String,
+}
+
+#[derive(Collection, Serialize, Deserialize, PartialEq, Debug)]
+#[deeb(
+    name = "user",
+    primary_key = "id",
+    associate = ("comment", "id", "user_id", "user_comment"),
+)]
 struct User {
     id: i32,
     name: String,
     age: f32,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
-struct Comment {
-    user_id: i32,
-    comment: String,
-}
-
 async fn spawn_deeb() -> Result<(Deeb, Entity, Entity, Entity), Error> {
     let db = Deeb::new();
 
     // Define entities
-    let mut comment = Entity::new("comment").primary_key("id");
+    let comment = Entity::new("comment")
+        .primary_key("id")
+        .associate("user", "user_id", "id", Some("test"))
+        .map_err(|e| anyhow::anyhow!(e))?;
     let user = Entity::new("user")
         .primary_key("id")
-        .associate(&mut comment, "user_id", Some("user_comment"))
+        .associate(comment.name.clone(), "id", "user_id", Some("user_comment"))
         .map_err(|e| anyhow::anyhow!(e))?;
 
     let user_address = Entity::new("user_address");
@@ -166,10 +179,28 @@ async fn find_one() -> Result<(), Error> {
     let query = Query::eq("name", "oliver");
     let result = db.find_one::<User>(&user, query, None).await?;
     assert_eq!(
-        result,
-        Some(serde_json::from_value::<User>(
-            json!({"id": 1,"name": "oliver", "age": 0.5})
-        )?)
+        Some(User {
+            id: 1,
+            name: "oliver".to_string(),
+            age: 0.5
+        }),
+        result
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn find_one_macro() -> Result<(), Error> {
+    let (db, ..) = spawn_deeb().await?;
+    let query = Query::eq("name", "oliver");
+    let result = User::find_one(&db, query).await?;
+    assert_eq!(
+        Some(User {
+            id: 1,
+            name: "oliver".to_string(),
+            age: 0.5
+        }),
+        result
     );
     Ok(())
 }
@@ -381,7 +412,6 @@ async fn test_ne() {
     let query = Query::ne("name", "nick");
     let value = json!({"name": "nick", "age": 35});
     let is_match = query.matches(&value).unwrap();
-    println!("{:?}", is_match);
     assert!(!query.matches(&value).unwrap());
 }
 
