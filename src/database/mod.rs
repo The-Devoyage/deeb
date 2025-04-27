@@ -1,5 +1,5 @@
 use anyhow::Error;
-use crate::entity::{EntityName, Entity};
+use crate::{EntityName, Entity};
 use fs2::FileExt;
 use log::*;
 use name::Name;

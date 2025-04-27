@@ -36,7 +36,7 @@
 //! 3. Create a deeb instance and perform operations.
 //!
 //! ```rust
-//! use deeb::{entity::Entity, *};
+//! use deeb::*;
 //! use serde_json::json;
 //! use serde::{Serialize, Deserialize};
 //! use anyhow::Error;
@@ -173,5 +173,5 @@ mod database;
 mod deeb;
 
 pub use crate::{database::query::Query, deeb::Deeb};
-pub use deeb_core::*;
-
+pub use deeb_core::entity::{Entity, EntityName};
+pub use deeb_macros::Collection;

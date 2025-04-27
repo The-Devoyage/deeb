@@ -1,14 +1,11 @@
 use anyhow::Error;
-use deeb::{entity::Entity, *};
+use deeb::*;
 use deeb_macros::Collection;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 #[derive(Collection, Serialize, Deserialize, PartialEq, Debug)]
-#[deeb(
-    name = "comment",
-    primary_key = "id",
-)]
+#[deeb(name = "comment", primary_key = "id")]
 struct Comment {
     user_id: i32,
     comment: String,
