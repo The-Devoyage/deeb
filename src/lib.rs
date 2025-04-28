@@ -41,20 +41,20 @@
 //! use serde::{Serialize, Deserialize};
 //! use anyhow::Error;
 //!
-//! #[derive(Serialize, Deserialize)]
+//! #[derive(Collection, Serialize, Deserialize)]
+//! #[deeb(
+//!     name = "user",
+//!     primary_key = "id",
+//!     associate = ("comment", "id", "user_id", "user_comment"),
+//!     )]
 //! struct User {
 //!     id: i32,
 //!     name: String,
 //!     age: i32
 //! }
 //!
-//! #[derive(Serialize)]
-//! struct UpdateUser {
-//!     name: Option<String>,
-//!     age: Option<i32>
-//! }
-//!
-//! #[derive(Serialize, Deserialize)]
+//! #[derive(Collection, Serialize, Deserialize)]
+//! #[deeb(name = "comment", primary_key = "id")]
 //! struct Comment {
 //!     user_id: i32,
 //!     comment: String
@@ -62,9 +62,9 @@
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<(), Error> {
-//!    // Create a new entity
-//!    let user = Entity::new("user");
-//!    let comment = Entity::new("comment");
+//!    // Create Entities
+//!    let user = User::entity();
+//!    let comment = Comment::entity();
 //!
 //!     // Set up a new Deeb instance
 //!    let db = Deeb::new();
@@ -74,31 +74,44 @@
 //!     .await?;
 //!
 //!    // Single Operations
-//!    db.insert::<User>(&user, User {id: 1, name: "George".to_string(), age: 10}, None).await?;
-//!    db.find_one::<User>(&user, Query::eq("name", "George"), None).await?;
+//!    User::insert(&db, User {id: 1, name: "George".to_string(), age: 10}, None).await?;
+//!    User::find_one(&db, Query::eq("name", "George"), None).await?;
 //!
 //!    // Perform a transaction
 //!    let mut transaction = db.begin_transaction().await;
 //!
-//!    // Insert data into the database
-//!    db.insert::<User>(&user, User {id: 1, name: "Steve".to_string(), age: 3}, Some(&mut transaction)).await?;
-//!    db.insert::<User>(&user, User {id: 2, name: "Johnny".to_string(), age: 3}, Some(&mut transaction)).await?;
-//!
-//!    db.insert::<Comment>(&comment, Comment {user_id: 1, comment: "Hello".to_string()}, Some(&mut transaction)).await?;
-//!    db.insert::<Comment>(&comment, Comment {user_id: 1, comment: "Hi".to_string()}, Some(&mut transaction)).await?;
-//!
-//!    // Query the database
-//!    let query = Query::eq("name", "Steve");
-//!    let result = db.find_one::<User>(&user, query, Some(&mut transaction)).await?;
+//!    User::insert(&db, User {id: 1, name: "Steve".to_string(), age: 3}, Some(&mut transaction)).await?;
+//!    User::insert(&db, User {id: 2, name: "Johnny".to_string(), age: 3}, Some(&mut transaction)).await?;
+//!    Comment::insert_many(
+//!           &db,
+//!           vec![
+//!               Comment {
+//!                   user_id: 1,
+//!                   comment: "Hello".to_string(),
+//!               },
+//!               Comment {
+//!                   user_id: 1,
+//!                   comment: "Hi".to_string(),
+//!               },
+//!           ],
+//!           Some(&mut transaction),
+//!       )
+//!       .await?;
 //!
 //!    // Update the database
+//!    // Define a struct to make updates consistent.
+//!    #[derive(Serialize)]
+//!     struct UpdateUser {
+//!         name: Option<String>,
+//!         age: Option<i32>
+//!     }
 //!    let query = Query::eq("name", "Steve");
 //!    let update = UpdateUser { age: Some(5), name: None };
-//!    db.update_one::<User, UpdateUser>(&user, query, update, Some(&mut transaction)).await?;
+//!    User::update_one(&db, query, update, Some(&mut transaction)).await?;
 //!
 //!    // Delete from the database
 //!    let query = Query::eq("name", "Johnny");
-//!    db.delete_one(&user, query, Some(&mut transaction)).await?;
+//!    User::delete_one(&db, query, Some(&mut transaction)).await?;
 //!
 //!    db.commit(&mut transaction).await?;
 //!
@@ -169,9 +182,13 @@
 //! - `add_key` : [Add a new key](deeb::Deeb::add_key) to the database
 //! - `drop_key` : [Drop a key](deeb::Deeb::drop_key) from the database
 
-mod database;
 mod deeb;
 
-pub use crate::{database::query::Query, deeb::Deeb};
-pub use deeb_core::entity::{Entity, EntityName};
+pub use crate::deeb::Deeb;
+pub use deeb_core::{
+    database::{
+        name::Name, query::Query, transaction::Transaction, Database, ExecutedValue, Operation,
+    },
+    entity::{Entity, EntityName},
+};
 pub use deeb_macros::Collection;

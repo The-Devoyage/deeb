@@ -5,7 +5,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 #[derive(Collection, Serialize, Deserialize, PartialEq, Debug)]
-#[deeb(name = "comment", primary_key = "id")]
+#[deeb(
+    name = "comment", 
+    primary_key = "id",
+    associate = ("user", "user_id", "id"),
+)]
 struct Comment {
     user_id: i32,
     comment: String,
@@ -23,20 +27,35 @@ struct User {
     age: f32,
 }
 
+#[derive(Deserialize, Serialize, Clone, Debug)]
+#[allow(dead_code)]
+struct AddressMeta {
+    zip: i32,
+    additional: Option<String>,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+#[allow(dead_code)]
+struct Address {
+    city: String,
+    country: String,
+    meta: Option<AddressMeta>,
+}
+
+#[derive(Collection, Deserialize, Serialize, Clone, Debug)]
+#[allow(dead_code)]
+#[deeb(name = "user_address")]
+struct UserAddress {
+    name: String,
+    address: Address,
+}
+
 async fn spawn_deeb() -> Result<(Deeb, Entity, Entity, Entity), Error> {
     let db = Deeb::new();
 
-    // Define entities
-    let comment = Entity::new("comment")
-        .primary_key("id")
-        .associate("user", "user_id", "id", Some("test"))
-        .map_err(|e| anyhow::anyhow!(e))?;
-    let user = Entity::new("user")
-        .primary_key("id")
-        .associate(comment.name.clone(), "id", "user_id", Some("user_comment"))
-        .map_err(|e| anyhow::anyhow!(e))?;
-
-    let user_address = Entity::new("user_address");
+    let user = User::entity();
+    let comment = Comment::entity();
+    let user_address = UserAddress::entity();
 
     // Add instances
     db.add_instance(
@@ -190,7 +209,7 @@ async fn find_one() -> Result<(), Error> {
 async fn find_one_macro() -> Result<(), Error> {
     let (db, ..) = spawn_deeb().await?;
     let query = Query::eq("name", "oliver");
-    let result = User::find_one(&db, query).await?;
+    let result = User::find_one(&db, query, None).await?;
     assert_eq!(
         Some(User {
             id: 1,
@@ -325,7 +344,7 @@ struct UpdateUser {
 
 #[tokio::test]
 async fn update_one() -> Result<(), Error> {
-    let (db, user, _comment, ..) = spawn_deeb().await?;
+    let (db, user, ..) = spawn_deeb().await?;
     let query = Query::eq("name", "oliver");
     let update = UpdateUser {
         name: Some("olivia".to_string()),
@@ -334,6 +353,26 @@ async fn update_one() -> Result<(), Error> {
     let result = db
         .update_one::<User, UpdateUser>(&user, query, update, None)
         .await?;
+    assert_eq!(
+        result,
+        Some(User {
+            id: 1,
+            name: "olivia".to_string(),
+            age: 0.5
+        })
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn update_one_macro() -> Result<(), Error> {
+    let (db, ..) = spawn_deeb().await?;
+    let query = Query::eq("name", "oliver");
+    let update = UpdateUser {
+        name: Some("olivia".to_string()),
+        age: None,
+    };
+    let result = User::update_one(&db, query, update, None).await?;
     assert_eq!(
         result,
         Some(User {
@@ -620,28 +659,6 @@ async fn drop_key() -> Result<(), Error> {
     Ok(())
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug)]
-#[allow(dead_code)]
-struct AddressMeta {
-    zip: i32,
-    additional: Option<String>,
-}
-
-#[derive(Deserialize, Serialize, Clone, Debug)]
-#[allow(dead_code)]
-struct Address {
-    city: String,
-    country: String,
-    meta: Option<AddressMeta>,
-}
-
-#[derive(Deserialize, Serialize, Clone, Debug)]
-#[allow(dead_code)]
-struct UserAddress {
-    name: String,
-    address: Address,
-}
-
 #[tokio::test]
 async fn drop_key_nested() -> Result<(), Error> {
     let (db, user, _comment, ..) = spawn_deeb().await?;
@@ -792,6 +809,7 @@ async fn load_meta() -> Result<(), Error> {
     assert_eq!(meta.len(), 3);
     assert_eq!(meta[0].name, "user".into());
     assert_eq!(meta[1].name, "comment".into());
+    assert_eq!(meta[2].name, "user_address".into());
     // primary key
     assert_eq!(meta[0].primary_key, Some("id".to_string()));
     assert_eq!(meta[1].primary_key, Some("id".to_string()));

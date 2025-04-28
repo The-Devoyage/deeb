@@ -1,5 +1,4 @@
 use anyhow::Error;
-use crate::{EntityName, Entity};
 use fs2::FileExt;
 use log::*;
 use name::Name;
@@ -9,6 +8,8 @@ use std::fs::{self, OpenOptions};
 use std::io::{Read, Write};
 
 use serde_json::{json, Map, Value};
+
+use crate::entity::{Entity, EntityName};
 
 pub mod name;
 pub mod query;

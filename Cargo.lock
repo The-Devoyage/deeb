@@ -299,7 +299,12 @@ dependencies = [
 name = "deeb_core"
 version = "0.0.1"
 dependencies = [
+ "anyhow",
+ "fs2",
+ "log",
  "serde",
+ "serde_json",
+ "uuid",
 ]
 
 [[package]]

@@ -1,4 +1,3 @@
-use crate::Entity;
 use anyhow::Error;
 use log::*;
 use serde::{de::DeserializeOwned, Serialize};
@@ -6,9 +5,7 @@ use serde_json::Value;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::database::{
-    name::Name, query::Query, transaction::Transaction, Database, ExecutedValue, Operation,
-};
+use crate::{Database, Entity, ExecutedValue, Name, Operation, Query, Transaction};
 
 #[derive(Clone, Debug)]
 pub struct Deeb {

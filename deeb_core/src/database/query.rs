@@ -1,5 +1,6 @@
-use crate::Entity;
 use serde_json::Value;
+
+use crate::entity::Entity;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Key(String);
