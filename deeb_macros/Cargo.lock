@@ -23,8 +23,6 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 [[package]]
 name = "deeb_core"
 version = "0.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "632d841e6d894c12d67aa4b85819f92e95fede18627d50e599ae16af69a0e7fe"
 dependencies = [
  "anyhow",
  "fs2",
@@ -36,8 +34,9 @@ dependencies = [
 
 [[package]]
 name = "deeb_macros"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
+ "anyhow",
  "deeb_core",
  "proc-macro2",
  "quote",

@@ -186,7 +186,7 @@ mod deeb;
 pub use crate::deeb::Deeb;
 pub use deeb_core::{
     database::{
-        name::Name, query::Query, transaction::Transaction, Database, ExecutedValue, Operation,
+        name::Name, query::Query, transaction::Transaction, Database, ExecutedValue, Operation, DbResult
     },
     entity::{Entity, EntityName},
 };

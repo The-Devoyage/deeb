@@ -1,5 +1,11 @@
 # Deeb Changelog
 
+## v0.0.9
+
+### Fixed
+
+- Custom error type to prevent need to install anyhow.
+
 ## v0.0.8
 
 ### Added

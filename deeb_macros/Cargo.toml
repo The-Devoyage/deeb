@@ -1,6 +1,6 @@
 [package]
 name = "deeb_macros"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2024"
 license = "MIT"
 description = "Macros for an ACID compliant JSON embeddable database written in Rust."
@@ -15,4 +15,5 @@ proc-macro = true
 syn = "2"
 quote = "1"
 proc-macro2 = "1"
-deeb_core = "0.0.1"
+deeb_core = "0.0.2"
+anyhow = "1.0.86"

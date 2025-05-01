@@ -139,7 +139,6 @@ pub fn derive_deeb(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         impl #name {
-
             pub fn entity() -> Entity {
                 let mut entity = Entity::new(#entity_name)
                     .primary_key(#primary_key);
@@ -149,35 +148,35 @@ pub fn derive_deeb(input: TokenStream) -> TokenStream {
                 entity
             }
 
-            pub async fn find_one(db: &Deeb, query: Query, transaction: Option<&mut Transaction>) -> Result<Option<Self>, anyhow::Error> {
+            pub async fn find_one(db: &Deeb, query: Query, transaction: Option<&mut Transaction>) -> DbResult<Option<Self>> {
                 Ok(db.find_one::<#name>(&Self::entity(), query, transaction).await?)
             }
 
-            pub async fn find_many(db: &Deeb, query: Query, transaction: Option<&mut Transaction>) -> Result<Option<Vec<Self>>, anyhow::Error> {
+            pub async fn find_many(db: &Deeb, query: Query, transaction: Option<&mut Transaction>) -> DbResult<Option<Vec<Self>>> {
                 Ok(db.find_many::<#name>(&Self::entity(), query, transaction).await?)
             }
 
-            pub async fn insert(db: &Deeb, value: Self, transaction: Option<&mut Transaction>) -> Result<Self, anyhow::Error> {
+            pub async fn insert(db: &Deeb, value: Self, transaction: Option<&mut Transaction>) -> DbResult<Self> {
                 Ok(db.insert::<#name>(&Self::entity(), value, transaction).await?)
             }
 
-            pub async fn insert_many(db: &Deeb, value: Vec<Self>, transaction: Option<&mut Transaction>) -> Result<Vec<Self>, anyhow::Error> {
+            pub async fn insert_many(db: &Deeb, value: Vec<Self>, transaction: Option<&mut Transaction>) -> DbResult<Vec<Self>> {
                 Ok(db.insert_many::<#name>(&Self::entity(), value, transaction).await?)
             }
 
-            pub async fn delete_one(db: &Deeb, query: Query, transaction: Option<&mut Transaction>) -> Result<Option<bool>, anyhow::Error> {
+            pub async fn delete_one(db: &Deeb, query: Query, transaction: Option<&mut Transaction>) -> DbResult<Option<bool>> {
                 Ok(db.delete_one(&Self::entity(), query, transaction).await?)
             }
 
-            pub async fn delete_many(db: &Deeb, query: Query, transaction: Option<&mut Transaction>) -> Result<Option<bool>, anyhow::Error> {
+            pub async fn delete_many(db: &Deeb, query: Query, transaction: Option<&mut Transaction>) -> DbResult<Option<bool>> {
                 Ok(db.delete_many(&Self::entity(), query, transaction).await?)
             }
 
-            pub async fn update_one<U: serde::Serialize>(db: &Deeb, query: Query, update: U, transaction: Option<&mut Transaction>) -> Result<Option<Self>, anyhow::Error> {
+            pub async fn update_one<U: serde::Serialize>(db: &Deeb, query: Query, update: U, transaction: Option<&mut Transaction>) -> DbResult<Option<Self>> {
                 Ok(db.update_one(&Self::entity(), query, update, transaction).await?)
             }
 
-            pub async fn update_many<U: serde::Serialize>(db: &Deeb, query: Query, update: U, transaction: Option<&mut Transaction>) -> Result<Option<Vec<Self>>, anyhow::Error> {
+            pub async fn update_many<U: serde::Serialize>(db: &Deeb, query: Query, update: U, transaction: Option<&mut Transaction>) -> DbResult<Option<Vec<Self>>> {
                 Ok(db.update_many(&Self::entity(), query, update, transaction).await?)
             }
         }

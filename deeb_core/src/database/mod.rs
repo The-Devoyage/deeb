@@ -15,6 +15,8 @@ pub mod name;
 pub mod query;
 pub mod transaction;
 
+pub type DbResult<T> = Result<T, anyhow::Error>;
+
 /// A database instance. Tpically, a database instance is a JSON file on disk.
 /// The `entities` field is a list of entities that are stored in the database used
 /// by Deeb to index the data.
@@ -218,7 +220,7 @@ impl Database {
     }
 
     // Operations
-    pub fn insert(&mut self, entity: &Entity, insert_value: Value) -> Result<Value, Error> {
+    pub fn insert(&mut self, entity: &Entity, insert_value: Value) -> DbResult<Value> {
         // Check insert_value, it needs to be a JSON object.
         // It can not have field or `_id`.
         if !insert_value.is_object() {
@@ -240,7 +242,7 @@ impl Database {
         &mut self,
         entity: &Entity,
         insert_values: Vec<Value>,
-    ) -> Result<Vec<Value>, Error> {
+    ) -> DbResult<Vec<Value>> {
         for insert_value in insert_values.iter() {
             if !insert_value.is_object() {
                 return Err(Error::msg("Value must be a JSON object"));
@@ -262,7 +264,7 @@ impl Database {
         Ok(values)
     }
 
-    pub fn find_one(&self, entity: &Entity, query: Query) -> Result<Value, Error> {
+    pub fn find_one(&self, entity: &Entity, query: Query) -> DbResult<Value> {
         let instance = self
             .get_instance_by_entity(entity)
             .ok_or_else(|| Error::msg("Entity not found"))?;
@@ -279,7 +281,7 @@ impl Database {
             .ok_or_else(|| Error::msg("Value not found"))
     }
 
-    pub fn find_many(&self, entity: &Entity, query: Query) -> Result<Vec<Value>, Error> {
+    pub fn find_many(&self, entity: &Entity, query: Query) -> DbResult<Vec<Value>> {
         let instance = self
             .get_instance_by_entity(entity)
             .ok_or_else(|| Error::msg("Entity not found"))?;
@@ -326,7 +328,7 @@ impl Database {
         Ok(result.cloned().collect())
     }
 
-    pub fn delete_one(&mut self, entity: &Entity, query: Query) -> Result<Value, Error> {
+    pub fn delete_one(&mut self, entity: &Entity, query: Query) -> DbResult<Value> {
         let instance = self
             .get_instance_by_entity_mut(entity)
             .ok_or_else(|| Error::msg("Entity not found"))?;
@@ -341,7 +343,7 @@ impl Database {
         Ok(data.remove(index))
     }
 
-    pub fn delete_many(&mut self, entity: &Entity, query: Query) -> Result<Vec<Value>, Error> {
+    pub fn delete_many(&mut self, entity: &Entity, query: Query) -> DbResult<Vec<Value>> {
         let instance = self
             .get_instance_by_entity_mut(entity)
             .ok_or_else(|| Error::msg("Entity not found"))?;
@@ -367,7 +369,7 @@ impl Database {
         entity: &Entity,
         query: Query,
         update_value: Value,
-    ) -> Result<Value, Error> {
+    ) -> DbResult<Value> {
         let instance = self
             .get_instance_by_entity_mut(entity)
             .ok_or_else(|| Error::msg("Entity not found"))?;
@@ -408,7 +410,7 @@ impl Database {
         entity: &Entity,
         query: Query,
         update_value: Value,
-    ) -> Result<Vec<Value>, Error> {
+    ) -> DbResult<Vec<Value>> {
         let instance = self
             .get_instance_by_entity_mut(entity)
             .ok_or_else(|| Error::msg("Entity not found"))?;
