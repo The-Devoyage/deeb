@@ -5,10 +5,7 @@ use serde_json::Value;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::database::{
-    entity::Entity, name::Name, query::Query, transaction::Transaction, Database, ExecutedValue,
-    Operation,
-};
+use crate::{Database, Entity, ExecutedValue, Name, Operation, Query, Transaction};
 
 #[derive(Clone, Debug)]
 pub struct Deeb {
@@ -241,6 +238,7 @@ impl Deeb {
             transaction.add_operation(operation);
             return Ok(None);
         }
+        println!("Finding one: {:?}", entity);
 
         let db = self.db.read().await;
         let value = db.find_one(entity, query).ok();

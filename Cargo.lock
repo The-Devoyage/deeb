@@ -284,6 +284,8 @@ version = "0.0.7"
 dependencies = [
  "anyhow",
  "criterion",
+ "deeb_core",
+ "deeb_macros",
  "env_logger",
  "fs2",
  "log",
@@ -291,6 +293,28 @@ dependencies = [
  "serde_json",
  "tokio",
  "uuid",
+]
+
+[[package]]
+name = "deeb_core"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "fs2",
+ "log",
+ "serde",
+ "serde_json",
+ "uuid",
+]
+
+[[package]]
+name = "deeb_macros"
+version = "0.0.1"
+dependencies = [
+ "deeb_core",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

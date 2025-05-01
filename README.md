@@ -1,6 +1,6 @@
 # Deeb - JSON Database
 
-Call it “Deeb,” “D-b,” or “That Cool JSON Thing”—this ACID Compliant database 
+Call it “Deeb,” “D-b,” or “That Cool JSON Thing”—this ACID Compliant database
 is perfect for tiny sites and rapid experiments.
 
 Inspired by flexibility of Mongo and light weight of SqLite, Deeb is a tool
@@ -20,7 +20,7 @@ to learn more.
 cargo add deeb
 ```
 
-2. Optionally, Create a JSON file for your database. Deeb will also create one for you if you like.
+2. Optionally, Create a JSON file for your database. Deeb will also create one for you if it does not exist.
 
 ```bash
 echo '{"user": []}' > user.json
@@ -41,20 +41,20 @@ use serde_json::json;
 use serde::{Serialize, Deserialize};
 use anyhow::Error;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Collection, Serialize, Deserialize)]
+#[deeb(
+    name = "user",
+    primary_key = "id",
+    associate = ("comment", "id", "user_id", "user_comment"),
+    )]
 struct User {
     id: i32,
     name: String,
     age: i32
 }
 
-#[derive(Serialize)]
-struct UpdateUser {
-    name: Option<String>,
-    age: Option<i32>
-}
-
-#[derive(Serialize, Deserialize)]
+#[derive(Collection, Serialize, Deserialize)]
+#[deeb(name = "comment", primary_key = "id")]
 struct Comment {
     user_id: i32,
     comment: String
@@ -62,9 +62,9 @@ struct Comment {
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-   // Create a new entity
-   let user = Entity::new("user");
-   let comment = Entity::new("comment");
+   // Create Entities
+   let user = User::entity();
+   let comment = Comment::entity();
 
     // Set up a new Deeb instance
    let db = Deeb::new();
@@ -74,31 +74,44 @@ async fn main() -> Result<(), Error> {
     .await?;
 
    // Single Operations
-   db.insert::<User>(&user, User {id: 1, name: "George".to_string(), age: 10}, None).await?;
-   db.find_one::<User>(&user, Query::eq("name", "George"), None).await?;
+   User::insert(&db, User {id: 1, name: "George".to_string(), age: 10}, None).await?;
+   User::find_one(&db, Query::eq("name", "George"), None).await?;
 
    // Perform a transaction
    let mut transaction = db.begin_transaction().await;
 
-   // Insert data into the database
-   db.insert::<User>(&user, User {id: 1, name: "Steve".to_string(), age: 3}, Some(&mut transaction)).await?;
-   db.insert::<User>(&user, User {id: 2, name: "Johnny".to_string(), age: 3}, Some(&mut transaction)).await?;
-
-   db.insert::<Comment>(&comment, Comment {user_id: 1, comment: "Hello".to_string()}, Some(&mut transaction)).await?;
-   db.insert::<Comment>(&comment, Comment {user_id: 1, comment: "Hi".to_string()}, Some(&mut transaction)).await?;
-
-   // Query the database
-   let query = Query::eq("name", "Steve");
-   let result = db.find_one::<User>(&user, query, Some(&mut transaction)).await?;
+   User::insert(&db, User {id: 1, name: "Steve".to_string(), age: 3}, Some(&mut transaction)).await?;
+   User::insert(&db, User {id: 2, name: "Johnny".to_string(), age: 3}, Some(&mut transaction)).await?;
+   Comment::insert_many(
+          &db,
+          vec![
+              Comment {
+                  user_id: 1,
+                  comment: "Hello".to_string(),
+              },
+              Comment {
+                  user_id: 1,
+                  comment: "Hi".to_string(),
+              },
+          ],
+          Some(&mut transaction),
+      )
+      .await?;
 
    // Update the database
+   // Define a struct to make updates consistent.
+   #[derive(Serialize)]
+    struct UpdateUser {
+        name: Option<String>,
+        age: Option<i32>
+    }
    let query = Query::eq("name", "Steve");
    let update = UpdateUser { age: Some(5), name: None };
-   db.update_one::<User, UpdateUser>(&user, query, update, Some(&mut transaction)).await?;
+   User::update_one(&db, query, update, Some(&mut transaction)).await?;
 
    // Delete from the database
    let query = Query::eq("name", "Johnny");
-   db.delete_one(&user, query, Some(&mut transaction)).await?;
+   User::delete_one(&db, query, Some(&mut transaction)).await?;
 
    db.commit(&mut transaction).await?;
 
@@ -128,9 +141,8 @@ async fn main() -> Result<(), Error> {
 - [x] Examples
 - [ ] Logging
 - [ ] Error Handling
-- [ ] CI/CD
 - [ ] Improve Transactions - Should return updated object instead of Option<T>
-- [ ] Implement traits and proc macros to streamline usage - `User.find_many(...)`
+- [x] Implement traits and proc macros to streamline usage - `User.find_many(...)`
 
 
 ## Deeb
@@ -166,13 +178,5 @@ async fn main() -> Result<(), Error> {
 
 ### Data Management
 
-- `add_key` : [Add a new key](deeb::Deeb::add_key) to the database
-- `drop_key` : [Drop a key](deeb::Deeb::drop_key) from the database
-
-mod database;
-mod deeb;
-
-pub use crate::{
-    database::{entity::Entity, query::Query},
-    deeb::Deeb,
-};
+- `add_key` : [Add a new key](deeb::Deeb::add_key) to every document in a collection 
+- `drop_key` : [Drop a key](deeb::Deeb::drop_key) from every document in a collection

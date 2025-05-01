@@ -1,32 +1,61 @@
 use anyhow::Error;
 use deeb::*;
+use deeb_macros::Collection;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Collection, Serialize, Deserialize, PartialEq, Debug)]
+#[deeb(
+    name = "comment", 
+    primary_key = "id",
+    associate = ("user", "user_id", "id"),
+)]
+struct Comment {
+    user_id: i32,
+    comment: String,
+}
+
+#[derive(Collection, Serialize, Deserialize, PartialEq, Debug)]
+#[deeb(
+    name = "user",
+    primary_key = "id",
+    associate = ("comment", "id", "user_id", "user_comment"),
+)]
 struct User {
     id: i32,
     name: String,
     age: f32,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
-struct Comment {
-    user_id: i32,
-    comment: String,
+#[derive(Deserialize, Serialize, Clone, Debug)]
+#[allow(dead_code)]
+struct AddressMeta {
+    zip: i32,
+    additional: Option<String>,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+#[allow(dead_code)]
+struct Address {
+    city: String,
+    country: String,
+    meta: Option<AddressMeta>,
+}
+
+#[derive(Collection, Deserialize, Serialize, Clone, Debug)]
+#[allow(dead_code)]
+#[deeb(name = "user_address")]
+struct UserAddress {
+    name: String,
+    address: Address,
 }
 
 async fn spawn_deeb() -> Result<(Deeb, Entity, Entity, Entity), Error> {
     let db = Deeb::new();
 
-    // Define entities
-    let mut comment = Entity::new("comment").primary_key("id");
-    let user = Entity::new("user")
-        .primary_key("id")
-        .associate(&mut comment, "user_id", Some("user_comment"))
-        .map_err(|e| anyhow::anyhow!(e))?;
-
-    let user_address = Entity::new("user_address");
+    let user = User::entity();
+    let comment = Comment::entity();
+    let user_address = UserAddress::entity();
 
     // Add instances
     db.add_instance(
@@ -129,6 +158,22 @@ async fn insert_one() -> Result<(), Error> {
 }
 
 #[tokio::test]
+async fn insert_one_macro() -> Result<(), Error> {
+    let (db, ..) = spawn_deeb().await?;
+    let value = User {
+        id: 12345,
+        name: "nick".to_string(),
+        age: 35.0,
+    };
+    let result = User::insert(&db, value, None).await?;
+    assert_eq!(
+        result,
+        serde_json::from_value::<User>(json!({"name": "nick", "age": 35, "id": 12345}))?
+    );
+    Ok(())
+}
+
+#[tokio::test]
 async fn insert_many() -> Result<(), Error> {
     let (db, user, _comment, ..) = spawn_deeb().await?;
     let values = vec![
@@ -161,15 +206,65 @@ async fn insert_many() -> Result<(), Error> {
 }
 
 #[tokio::test]
+async fn insert_many_macro() -> Result<(), Error> {
+    let (db, ..) = spawn_deeb().await?;
+    let values = vec![
+        User {
+            name: "jack".to_string(),
+            age: 21.0,
+            id: 92884,
+        },
+        User {
+            name: "jull".to_string(),
+            age: 20.0,
+            id: 923489,
+        },
+    ];
+    let result = User::insert_many(&db, values, None).await?;
+    let expected = vec![
+        User {
+            name: "jack".to_string(),
+            age: 21.0,
+            id: 92884,
+        },
+        User {
+            name: "jull".to_string(),
+            age: 20.0,
+            id: 923489,
+        },
+    ];
+    assert_eq!(result, expected);
+    Ok(())
+}
+
+#[tokio::test]
 async fn find_one() -> Result<(), Error> {
     let (db, user, _comment, ..) = spawn_deeb().await?;
     let query = Query::eq("name", "oliver");
     let result = db.find_one::<User>(&user, query, None).await?;
     assert_eq!(
-        result,
-        Some(serde_json::from_value::<User>(
-            json!({"id": 1,"name": "oliver", "age": 0.5})
-        )?)
+        Some(User {
+            id: 1,
+            name: "oliver".to_string(),
+            age: 0.5
+        }),
+        result
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn find_one_macro() -> Result<(), Error> {
+    let (db, ..) = spawn_deeb().await?;
+    let query = Query::eq("name", "oliver");
+    let result = User::find_one(&db, query, None).await?;
+    assert_eq!(
+        Some(User {
+            id: 1,
+            name: "oliver".to_string(),
+            age: 0.5
+        }),
+        result
     );
     Ok(())
 }
@@ -203,6 +298,30 @@ async fn find_many() -> Result<(), Error> {
 }
 
 #[tokio::test]
+async fn find_many_macro() -> Result<(), Error> {
+    let (db, ..) = spawn_deeb().await?;
+    let query = Query::eq("age", 0.5);
+    let result = User::find_many(&db, query, None).await?.unwrap();
+    assert!(
+        result.contains(&User {
+            id: 1,
+            name: "oliver".into(),
+            age: 0.5
+        }) && result.contains(&User {
+            id: 2,
+            name: "magnolia".into(),
+            age: 0.5
+        }) && result.contains(&User {
+            id: 3,
+            name: "olliard".into(),
+            age: 0.5
+        })
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn delete_one() -> Result<(), Error> {
     let (db, user, _comment, ..) = spawn_deeb().await?;
     let query = Query::eq("name", "oliver");
@@ -216,11 +335,33 @@ async fn delete_one() -> Result<(), Error> {
 }
 
 #[tokio::test]
+async fn delete_one_macro() -> Result<(), Error> {
+    let (db, ..) = spawn_deeb().await?;
+    let query = Query::eq("name", "oliver");
+    let result = User::delete_one(&db, query, None)
+        .await?
+        .ok_or_else(|| Error::msg("Expected delete result but found none."))?;
+    assert_eq!(result, true);
+    Ok(())
+}
+
+#[tokio::test]
 async fn delete_many() -> Result<(), Error> {
     let (db, user, _comment, ..) = spawn_deeb().await?;
     let query = Query::eq("age", 0.5);
     let result = db
         .delete_many(&user, query, None)
+        .await?
+        .ok_or_else(|| Error::msg("Expected delete result but found none."))?;
+    assert!(result);
+    Ok(())
+}
+
+#[tokio::test]
+async fn delete_many_macro() -> Result<(), Error> {
+    let (db, ..) = spawn_deeb().await?;
+    let query = Query::eq("age", 0.5);
+    let result = User::delete_many(&db, query, None)
         .await?
         .ok_or_else(|| Error::msg("Expected delete result but found none."))?;
     assert!(result);
@@ -289,6 +430,69 @@ async fn transaction() -> Result<(), Error> {
     Ok(())
 }
 
+#[tokio::test]
+async fn transaction_macro() -> Result<(), Error> {
+    let (db, user, _comment, ..) = spawn_deeb().await?;
+    let mut transaction = db.begin_transaction().await;
+    User::insert(
+        &db,
+        User {
+            name: "Al".to_string(),
+            age: 45.0,
+            id: 255,
+        },
+        Some(&mut transaction),
+    )
+    .await?;
+    User::insert(
+        &db,
+        User {
+            name: "Peg".to_string(),
+            age: 40.0,
+            id: 256,
+        },
+        Some(&mut transaction),
+    )
+    .await?;
+    User::insert(
+        &db,
+        User {
+            name: "Bud".to_string(),
+            age: 18.0,
+            id: 257,
+        },
+        Some(&mut transaction),
+    )
+    .await?;
+    db.commit(&mut transaction).await?;
+
+    let query = Query::Or(vec![
+        Query::eq("name", "Al"),
+        Query::eq("name", "Peg"),
+        Query::eq("name", "Bud"),
+    ]);
+    let result = db
+        .find_many::<User>(&user, query, None)
+        .await?
+        .ok_or_else(|| Error::msg("Expected vec of type but found none."))?;
+    assert!(
+        result.contains(&User {
+            name: "Al".to_string(),
+            age: 45.0,
+            id: 255
+        }) && result.contains(&User {
+            name: "Peg".to_string(),
+            age: 40.0,
+            id: 256
+        }) && result.contains(&User {
+            name: "Bud".to_string(),
+            age: 18.0,
+            id: 257
+        })
+    );
+    Ok(())
+}
+
 #[derive(Serialize)]
 struct UpdateUser {
     name: Option<String>,
@@ -297,7 +501,7 @@ struct UpdateUser {
 
 #[tokio::test]
 async fn update_one() -> Result<(), Error> {
-    let (db, user, _comment, ..) = spawn_deeb().await?;
+    let (db, user, ..) = spawn_deeb().await?;
     let query = Query::eq("name", "oliver");
     let update = UpdateUser {
         name: Some("olivia".to_string()),
@@ -306,6 +510,26 @@ async fn update_one() -> Result<(), Error> {
     let result = db
         .update_one::<User, UpdateUser>(&user, query, update, None)
         .await?;
+    assert_eq!(
+        result,
+        Some(User {
+            id: 1,
+            name: "olivia".to_string(),
+            age: 0.5
+        })
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn update_one_macro() -> Result<(), Error> {
+    let (db, ..) = spawn_deeb().await?;
+    let query = Query::eq("name", "oliver");
+    let update = UpdateUser {
+        name: Some("olivia".to_string()),
+        age: None,
+    };
+    let result = User::update_one(&db, query, update, None).await?;
     assert_eq!(
         result,
         Some(User {
@@ -327,6 +551,35 @@ async fn update_many() -> Result<(), Error> {
     };
     let result = db
         .update_many::<User, UpdateUser>(&user, query, update, None)
+        .await?
+        .ok_or_else(|| Error::msg("Expected vector but received none."))?;
+    assert!(
+        result.contains(&User {
+            id: 1,
+            name: "oliver".into(),
+            age: 1.0
+        }) && result.contains(&User {
+            id: 2,
+            name: "magnolia".into(),
+            age: 1.0
+        }) && result.contains(&User {
+            id: 3,
+            name: "olliard".into(),
+            age: 1.0
+        })
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn update_many_macro() -> Result<(), Error> {
+    let (db, ..) = spawn_deeb().await?;
+    let query = Query::eq("age", 0.5);
+    let update = UpdateUser {
+        age: Some(1.0),
+        name: None,
+    };
+    let result = User::update_many(&db, query, update, None)
         .await?
         .ok_or_else(|| Error::msg("Expected vector but received none."))?;
     assert!(
@@ -380,8 +633,6 @@ async fn test_nested_eq() {
 async fn test_ne() {
     let query = Query::ne("name", "nick");
     let value = json!({"name": "nick", "age": 35});
-    let is_match = query.matches(&value).unwrap();
-    println!("{:?}", is_match);
     assert!(!query.matches(&value).unwrap());
 }
 
@@ -593,28 +844,6 @@ async fn drop_key() -> Result<(), Error> {
     Ok(())
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug)]
-#[allow(dead_code)]
-struct AddressMeta {
-    zip: i32,
-    additional: Option<String>,
-}
-
-#[derive(Deserialize, Serialize, Clone, Debug)]
-#[allow(dead_code)]
-struct Address {
-    city: String,
-    country: String,
-    meta: Option<AddressMeta>,
-}
-
-#[derive(Deserialize, Serialize, Clone, Debug)]
-#[allow(dead_code)]
-struct UserAddress {
-    name: String,
-    address: Address,
-}
-
 #[tokio::test]
 async fn drop_key_nested() -> Result<(), Error> {
     let (db, user, _comment, ..) = spawn_deeb().await?;
@@ -765,6 +994,7 @@ async fn load_meta() -> Result<(), Error> {
     assert_eq!(meta.len(), 3);
     assert_eq!(meta[0].name, "user".into());
     assert_eq!(meta[1].name, "comment".into());
+    assert_eq!(meta[2].name, "user_address".into());
     // primary key
     assert_eq!(meta[0].primary_key, Some("id".to_string()));
     assert_eq!(meta[1].primary_key, Some("id".to_string()));

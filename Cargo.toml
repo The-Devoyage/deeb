@@ -1,6 +1,6 @@
 [package]
 name = "deeb"
-version = "0.0.7"
+version = "0.0.8"
 edition = "2021"
 license = "MIT"
 description = "An ACID compliant JSON database built with Rust"
@@ -20,6 +20,8 @@ uuid = { version= "1.8.0", features = ["v4"] }
 log = "0.4.21"
 env_logger = "0.11.3"
 fs2 = "0.4.3"
+deeb_macros = { path = "./deeb_macros" }
+deeb_core = { path = "./deeb_core" }
 
 [dev-dependencies]
 criterion = { version = "0.4", features = ["html_reports", "async_tokio"] }

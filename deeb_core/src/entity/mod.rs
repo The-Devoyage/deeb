@@ -7,6 +7,11 @@ impl From<&str> for EntityName {
         Self(s.to_string())
     }
 }
+impl Into<EntityName> for String {
+    fn into(self) -> EntityName {
+        EntityName(self)
+    }
+}
 impl std::fmt::Display for EntityName {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", self.0)
@@ -15,9 +20,9 @@ impl std::fmt::Display for EntityName {
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Serialize, Deserialize)]
 pub struct EntityAssociation {
+    pub entity_name: EntityName,
     pub from: String,
     pub to: String,
-    pub entity_name: EntityName,
     /// Uses the entity name as the alias if not provided.
     pub alias: EntityName,
 }
@@ -67,42 +72,21 @@ impl Entity {
 
     pub fn associate<'a, N>(
         &mut self,
-        entity: &'a mut Entity,
+        entity_name: N,
         from: &str,
-        alias: Option<N>,
+        to: &str,
+        alias: Option<&str>,
     ) -> Result<Self, String>
     where
-        N: Into<EntityName>,
+        N: Into<EntityName> + Clone,
     {
-        // Make sure the keys are valid by enforcing primary keys in both entities
-        if self.primary_key.is_none() {
-            return Err(format!(
-                "Origin Entity `{}` does not have a primary key.",
-                self.name
-            ));
-        }
-
-        if entity.primary_key.is_none() {
-            return Err(format!(
-                "Associated Entity `{}` does not have a primary key.",
-                entity.name
-            ));
-        }
-
-        let alias = alias.map_or_else(|| entity.name.clone(), |a| a.into());
+        let alias = alias.map_or_else(|| entity_name.clone().into(), |a| a.into());
 
         self.associations.push(EntityAssociation {
-            from: entity.primary_key.clone().unwrap(),
-            to: from.to_string(),
-            entity_name: entity.name.clone(),
-            alias,
-        });
-
-        entity.associations.push(EntityAssociation {
+            entity_name: entity_name.clone().into(),
             from: from.to_string(),
-            to: entity.primary_key.clone().unwrap(),
-            entity_name: self.name.clone(),
-            alias: self.name.clone(),
+            to: to.to_string(),
+            alias,
         });
 
         Ok(self.clone())

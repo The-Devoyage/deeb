@@ -1,5 +1,11 @@
 # Deeb Changelog
 
+## v0.0.8
+
+### Added
+
+- Improved DX with Proc Macro Support.
+
 ## v0.0.7
 
 ### Fixed
@@ -24,6 +30,7 @@
 - Drop key and add key functionality.
 
 ### Changed
+
 - Improved array support.
 
 - Defining an entity now has a `new` impl.
