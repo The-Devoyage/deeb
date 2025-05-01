@@ -20,7 +20,7 @@
 //! cargo add deeb
 //! ```
 //!
-//! 2. Optionally, Create a JSON file for your database. Deeb will also create one for you if you like.
+//! 2. Optionally, Create a JSON file for your database. Deeb will also create one for you if it does not exist.
 //!
 //! ```bash
 //! echo '{"user": []}' > user.json
@@ -141,9 +141,8 @@
 //! - [x] Examples
 //! - [ ] Logging
 //! - [ ] Error Handling
-//! - [ ] CI/CD
 //! - [ ] Improve Transactions - Should return updated object instead of Option<T>
-//! - [ ] Implement traits and proc macros to streamline usage - `User.find_many(...)`
+//! - [x] Implement traits and proc macros to streamline usage - `User.find_many(...)`
 //!
 //!
 //! ## Deeb
@@ -179,8 +178,8 @@
 //!
 //! ### Data Management
 //!
-//! - `add_key` : [Add a new key](deeb::Deeb::add_key) to the database
-//! - `drop_key` : [Drop a key](deeb::Deeb::drop_key) from the database
+//! - `add_key` : [Add a new key](deeb::Deeb::add_key) to every document in a collection 
+//! - `drop_key` : [Drop a key](deeb::Deeb::drop_key) from every document in a collection
 
 mod deeb;
 

@@ -158,6 +158,22 @@ async fn insert_one() -> Result<(), Error> {
 }
 
 #[tokio::test]
+async fn insert_one_macro() -> Result<(), Error> {
+    let (db, ..) = spawn_deeb().await?;
+    let value = User {
+        id: 12345,
+        name: "nick".to_string(),
+        age: 35.0,
+    };
+    let result = User::insert(&db, value, None).await?;
+    assert_eq!(
+        result,
+        serde_json::from_value::<User>(json!({"name": "nick", "age": 35, "id": 12345}))?
+    );
+    Ok(())
+}
+
+#[tokio::test]
 async fn insert_many() -> Result<(), Error> {
     let (db, user, _comment, ..) = spawn_deeb().await?;
     let values = vec![
@@ -173,6 +189,38 @@ async fn insert_many() -> Result<(), Error> {
         },
     ];
     let result = db.insert_many::<User>(&user, values, None).await?;
+    let expected = vec![
+        User {
+            name: "jack".to_string(),
+            age: 21.0,
+            id: 92884,
+        },
+        User {
+            name: "jull".to_string(),
+            age: 20.0,
+            id: 923489,
+        },
+    ];
+    assert_eq!(result, expected);
+    Ok(())
+}
+
+#[tokio::test]
+async fn insert_many_macro() -> Result<(), Error> {
+    let (db, ..) = spawn_deeb().await?;
+    let values = vec![
+        User {
+            name: "jack".to_string(),
+            age: 21.0,
+            id: 92884,
+        },
+        User {
+            name: "jull".to_string(),
+            age: 20.0,
+            id: 923489,
+        },
+    ];
+    let result = User::insert_many(&db, values, None).await?;
     let expected = vec![
         User {
             name: "jack".to_string(),
@@ -250,6 +298,30 @@ async fn find_many() -> Result<(), Error> {
 }
 
 #[tokio::test]
+async fn find_many_macro() -> Result<(), Error> {
+    let (db, ..) = spawn_deeb().await?;
+    let query = Query::eq("age", 0.5);
+    let result = User::find_many(&db, query, None).await?.unwrap();
+    assert!(
+        result.contains(&User {
+            id: 1,
+            name: "oliver".into(),
+            age: 0.5
+        }) && result.contains(&User {
+            id: 2,
+            name: "magnolia".into(),
+            age: 0.5
+        }) && result.contains(&User {
+            id: 3,
+            name: "olliard".into(),
+            age: 0.5
+        })
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn delete_one() -> Result<(), Error> {
     let (db, user, _comment, ..) = spawn_deeb().await?;
     let query = Query::eq("name", "oliver");
@@ -263,11 +335,33 @@ async fn delete_one() -> Result<(), Error> {
 }
 
 #[tokio::test]
+async fn delete_one_macro() -> Result<(), Error> {
+    let (db, ..) = spawn_deeb().await?;
+    let query = Query::eq("name", "oliver");
+    let result = User::delete_one(&db, query, None)
+        .await?
+        .ok_or_else(|| Error::msg("Expected delete result but found none."))?;
+    assert_eq!(result, true);
+    Ok(())
+}
+
+#[tokio::test]
 async fn delete_many() -> Result<(), Error> {
     let (db, user, _comment, ..) = spawn_deeb().await?;
     let query = Query::eq("age", 0.5);
     let result = db
         .delete_many(&user, query, None)
+        .await?
+        .ok_or_else(|| Error::msg("Expected delete result but found none."))?;
+    assert!(result);
+    Ok(())
+}
+
+#[tokio::test]
+async fn delete_many_macro() -> Result<(), Error> {
+    let (db, ..) = spawn_deeb().await?;
+    let query = Query::eq("age", 0.5);
+    let result = User::delete_many(&db, query, None)
         .await?
         .ok_or_else(|| Error::msg("Expected delete result but found none."))?;
     assert!(result);
@@ -309,6 +403,69 @@ async fn transaction() -> Result<(), Error> {
     )
     .await?;
     db.commit(&mut transaction).await?;
+    let query = Query::Or(vec![
+        Query::eq("name", "Al"),
+        Query::eq("name", "Peg"),
+        Query::eq("name", "Bud"),
+    ]);
+    let result = db
+        .find_many::<User>(&user, query, None)
+        .await?
+        .ok_or_else(|| Error::msg("Expected vec of type but found none."))?;
+    assert!(
+        result.contains(&User {
+            name: "Al".to_string(),
+            age: 45.0,
+            id: 255
+        }) && result.contains(&User {
+            name: "Peg".to_string(),
+            age: 40.0,
+            id: 256
+        }) && result.contains(&User {
+            name: "Bud".to_string(),
+            age: 18.0,
+            id: 257
+        })
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn transaction_macro() -> Result<(), Error> {
+    let (db, user, _comment, ..) = spawn_deeb().await?;
+    let mut transaction = db.begin_transaction().await;
+    User::insert(
+        &db,
+        User {
+            name: "Al".to_string(),
+            age: 45.0,
+            id: 255,
+        },
+        Some(&mut transaction),
+    )
+    .await?;
+    User::insert(
+        &db,
+        User {
+            name: "Peg".to_string(),
+            age: 40.0,
+            id: 256,
+        },
+        Some(&mut transaction),
+    )
+    .await?;
+    User::insert(
+        &db,
+        User {
+            name: "Bud".to_string(),
+            age: 18.0,
+            id: 257,
+        },
+        Some(&mut transaction),
+    )
+    .await?;
+    db.commit(&mut transaction).await?;
+
     let query = Query::Or(vec![
         Query::eq("name", "Al"),
         Query::eq("name", "Peg"),
@@ -414,6 +571,35 @@ async fn update_many() -> Result<(), Error> {
     Ok(())
 }
 
+#[tokio::test]
+async fn update_many_macro() -> Result<(), Error> {
+    let (db, ..) = spawn_deeb().await?;
+    let query = Query::eq("age", 0.5);
+    let update = UpdateUser {
+        age: Some(1.0),
+        name: None,
+    };
+    let result = User::update_many(&db, query, update, None)
+        .await?
+        .ok_or_else(|| Error::msg("Expected vector but received none."))?;
+    assert!(
+        result.contains(&User {
+            id: 1,
+            name: "oliver".into(),
+            age: 1.0
+        }) && result.contains(&User {
+            id: 2,
+            name: "magnolia".into(),
+            age: 1.0
+        }) && result.contains(&User {
+            id: 3,
+            name: "olliard".into(),
+            age: 1.0
+        })
+    );
+    Ok(())
+}
+
 // Test Query
 #[tokio::test]
 async fn test_eq() {
@@ -447,7 +633,6 @@ async fn test_nested_eq() {
 async fn test_ne() {
     let query = Query::ne("name", "nick");
     let value = json!({"name": "nick", "age": 35});
-    let is_match = query.matches(&value).unwrap();
     assert!(!query.matches(&value).unwrap());
 }
 
