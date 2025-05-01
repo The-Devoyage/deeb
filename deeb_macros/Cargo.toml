@@ -11,4 +11,4 @@ proc-macro = true
 syn = "2"
 quote = "1"
 proc-macro2 = "1"
-deeb_core = { path = "../deeb_core" }
+deeb_core = "0.0.1"
