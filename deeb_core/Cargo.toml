@@ -2,6 +2,10 @@
 name = "deeb_core"
 version = "0.0.1"
 edition = "2024"
+license = "MIT"
+description = "Core library for an ACID compliant JSON embeddable database written in Rust."
+homepage = "https://www.github.com/the-devoyage/deeb"
+repository = "https://www.github.com/the-devoyage/deeb"
 
 [dependencies]
 serde = { version = "1.0.203", features = ["derive"] }
