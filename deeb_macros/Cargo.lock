@@ -22,7 +22,9 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "deeb_core"
-version = "0.0.1"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e0fe814af24315af4bd9c6e1b58012e1ec6dc8a1629dd3dc42d06494fbb9d557"
 dependencies = [
  "anyhow",
  "fs2",
