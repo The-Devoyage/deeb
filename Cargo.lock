@@ -280,7 +280,7 @@ checksum = "7a81dae078cea95a014a339291cec439d2f232ebe854a9d672b796c6afafa9b7"
 
 [[package]]
 name = "deeb"
-version = "0.0.7"
+version = "0.0.8"
 dependencies = [
  "anyhow",
  "criterion",
@@ -298,6 +298,8 @@ dependencies = [
 [[package]]
 name = "deeb_core"
 version = "0.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "632d841e6d894c12d67aa4b85819f92e95fede18627d50e599ae16af69a0e7fe"
 dependencies = [
  "anyhow",
  "fs2",
@@ -310,6 +312,8 @@ dependencies = [
 [[package]]
 name = "deeb_macros"
 version = "0.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c0f69378192fcf85755b611d20f282e1757ebd6214e97ad0c28a3fef2a12aa4"
 dependencies = [
  "deeb_core",
  "proc-macro2",
