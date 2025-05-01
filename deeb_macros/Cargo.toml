@@ -2,6 +2,10 @@
 name = "deeb_macros"
 version = "0.0.1"
 edition = "2024"
+license = "MIT"
+description = "Macros for an ACID compliant JSON embeddable database written in Rust."
+homepage = "https://www.github.com/the-devoyage/deeb"
+repository = "https://www.github.com/the-devoyage/deeb"
 
 
 [lib]
