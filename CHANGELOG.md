@@ -1,5 +1,9 @@
 # Deeb Changelog
 
+## v0.10.0
+
+- Improve ACID Compliance with fsync.
+
 ## v0.0.9
 
 ### Fixed

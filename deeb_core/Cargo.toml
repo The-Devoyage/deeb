@@ -14,3 +14,4 @@ anyhow = "1.0.86"
 log = "0.4.21"
 fs2 = "0.4.3"
 uuid = { version= "1.8.0", features = ["v4"] }
+bson = "2.14.0"
