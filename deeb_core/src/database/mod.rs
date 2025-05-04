@@ -1,7 +1,7 @@
 use anyhow::Error;
 use fs2::FileExt;
 use log::*;
-use name::InstanceName;
+use instance_name::InstanceName;
 use query::Query;
 use std::collections::HashMap;
 use std::fs::{self, OpenOptions};
@@ -11,7 +11,7 @@ use serde_json::{json, Map, Value};
 
 use crate::entity::{Entity, EntityName};
 
-pub mod name;
+pub mod instance_name;
 pub mod query;
 pub mod transaction;
 
