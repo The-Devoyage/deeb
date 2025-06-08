@@ -1,5 +1,6 @@
 use anyhow::Error;
 use database_instance::DatabaseInstance;
+use find_many_options::FindManyOptions;
 use fs2::FileExt;
 use instance_name::InstanceName;
 use log::*;
@@ -13,6 +14,7 @@ use serde_json::{Map, Value, json};
 use crate::entity::{Entity, EntityName};
 
 pub mod database_instance;
+pub mod find_many_options;
 pub mod instance_name;
 pub mod query;
 pub mod transaction;
@@ -50,6 +52,7 @@ pub enum Operation {
     FindMany {
         entity: Entity,
         query: Query,
+        find_many_options: Option<FindManyOptions>,
     },
     DeleteOne {
         entity: Entity,
@@ -279,7 +282,12 @@ impl Database {
             .ok_or_else(|| Error::msg("Value not found"))
     }
 
-    pub fn find_many(&self, entity: &Entity, query: Query) -> DbResult<Vec<Value>> {
+    pub fn find_many(
+        &self,
+        entity: &Entity,
+        query: Query,
+        find_many_options: Option<FindManyOptions>,
+    ) -> DbResult<Vec<Value>> {
         let instance = self
             .get_instance_by_entity(entity)
             .ok_or_else(|| Error::msg("Entity not found"))?;
@@ -288,6 +296,10 @@ impl Database {
             .get(&entity.name)
             .ok_or_else(|| Error::msg("Data not found"))?;
         let associated_entities = query.associated_entities();
+        let FindManyOptions { skip, limit } = find_many_options.unwrap_or(FindManyOptions {
+            skip: None,
+            limit: None,
+        });
         let data = data
             .iter()
             .map(|value| {
@@ -309,7 +321,7 @@ impl Database {
                                                                               //safely
                     );
                     let associated_data = self
-                        .find_many(associated_entity, association_query)
+                        .find_many(associated_entity, association_query, None)
                         .unwrap();
 
                     value.as_object_mut().unwrap().insert(
@@ -323,7 +335,9 @@ impl Database {
         let result = data
             .iter()
             .filter(|value| query.clone().matches(value).unwrap_or(false));
-        Ok(result.cloned().collect())
+        let skipped = result.skip(skip.unwrap_or(0) as usize);
+        let limited = skipped.take(limit.unwrap_or(i32::MAX) as usize);
+        Ok(limited.cloned().collect())
     }
 
     pub fn delete_one(&mut self, entity: &Entity, query: Query) -> DbResult<Value> {

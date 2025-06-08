@@ -274,7 +274,7 @@ async fn find_many() -> Result<(), Error> {
     let (db, user, _comment, ..) = spawn_deeb().await?;
     let query = Query::eq("age", 0.5);
     let result = db
-        .find_many::<User>(&user, query, None)
+        .find_many::<User>(&user, query, None, None)
         .await?
         .ok_or_else(|| Error::msg("Expected Users but found none"))?;
 
@@ -301,7 +301,7 @@ async fn find_many() -> Result<(), Error> {
 async fn find_many_macro() -> Result<(), Error> {
     let (db, ..) = spawn_deeb().await?;
     let query = Query::eq("age", 0.5);
-    let result = User::find_many(&db, query, None).await?.unwrap();
+    let result = User::find_many(&db, query, None, None).await?.unwrap();
     assert!(
         result.contains(&User {
             id: 1,
@@ -318,6 +318,60 @@ async fn find_many_macro() -> Result<(), Error> {
         })
     );
 
+    Ok(())
+}
+
+#[tokio::test]
+async fn find_many_with_limit() -> Result<(), Error> {
+    let (db, user, ..) = spawn_deeb().await?;
+    let query = Query::eq("age", 0.5);
+    let options = Some(FindManyOptions {
+        limit: Some(2),
+        skip: None,
+    });
+
+    let result = db
+        .find_many::<User>(&user, query, options, None)
+        .await?
+        .ok_or_else(|| Error::msg("Expected Users but found none"))?;
+
+    assert_eq!(result.len(), 2);
+    Ok(())
+}
+
+#[tokio::test]
+async fn find_many_with_skip() -> Result<(), Error> {
+    let (db, user, ..) = spawn_deeb().await?;
+    let query = Query::eq("age", 0.5);
+    let options = Some(FindManyOptions {
+        limit: None,
+        skip: Some(1),
+    });
+
+    let result = db
+        .find_many::<User>(&user, query, options, None)
+        .await?
+        .ok_or_else(|| Error::msg("Expected Users but found none"))?;
+
+    assert_eq!(result.len(), 2);
+    Ok(())
+}
+
+#[tokio::test]
+async fn find_many_with_limit_and_skip() -> Result<(), Error> {
+    let (db, user, ..) = spawn_deeb().await?;
+    let query = Query::eq("age", 0.5);
+    let options = Some(FindManyOptions {
+        limit: Some(1),
+        skip: Some(1),
+    });
+
+    let result = db
+        .find_many::<User>(&user, query, options, None)
+        .await?
+        .ok_or_else(|| Error::msg("Expected Users but found none"))?;
+
+    assert_eq!(result.len(), 1);
     Ok(())
 }
 
@@ -409,7 +463,7 @@ async fn transaction() -> Result<(), Error> {
         Query::eq("name", "Bud"),
     ]);
     let result = db
-        .find_many::<User>(&user, query, None)
+        .find_many::<User>(&user, query, None, None)
         .await?
         .ok_or_else(|| Error::msg("Expected vec of type but found none."))?;
     assert!(
@@ -472,7 +526,7 @@ async fn transaction_macro() -> Result<(), Error> {
         Query::eq("name", "Bud"),
     ]);
     let result = db
-        .find_many::<User>(&user, query, None)
+        .find_many::<User>(&user, query, None, None)
         .await?
         .ok_or_else(|| Error::msg("Expected vec of type but found none."))?;
     assert!(
@@ -987,7 +1041,7 @@ async fn load_meta() -> Result<(), Error> {
     let (db, ..) = spawn_deeb().await?;
     let _meta = db.get_meta()?;
     let meta = db
-        .find_many::<Entity>(&_meta, Query::All, None)
+        .find_many::<Entity>(&_meta, Query::All, None, None)
         .await?
         .ok_or_else(|| Error::msg("Expected type but found none."))?;
 
@@ -1021,7 +1075,7 @@ async fn find_by_association() -> Result<(), Error> {
     let (db, user, comment, ..) = spawn_deeb().await?;
     let query = Query::associated(comment.clone(), Query::eq("user_comment.comment", "Hello"));
     let result = db
-        .find_many::<UserWithComments>(&user, query, None)
+        .find_many::<UserWithComments>(&user, query, None, None)
         .await?
         .ok_or_else(|| Error::msg("Expected type but found none."))?;
     let first_comment = result[0].user_comment[0].comment.clone();
