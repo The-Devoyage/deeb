@@ -1,31 +1,23 @@
 use anyhow::Error;
+use database_instance::DatabaseInstance;
 use fs2::FileExt;
-use log::*;
 use instance_name::InstanceName;
+use log::*;
 use query::Query;
 use std::collections::HashMap;
 use std::fs::{self, OpenOptions};
 use std::io::{Read, Write};
 
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 use crate::entity::{Entity, EntityName};
 
+pub mod database_instance;
 pub mod instance_name;
 pub mod query;
 pub mod transaction;
 
 pub type DbResult<T> = Result<T, anyhow::Error>;
-
-/// A database instance. Typically, a database instance is a JSON file on disk.
-/// The `entities` field is a list of entities that are stored in the database used
-/// by Deeb to index the data.
-#[derive(Debug, Clone)]
-pub struct DatabaseInstance {
-    file_path: String,
-    entities: Vec<Entity>,
-    data: HashMap<EntityName, Vec<Value>>,
-}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExecutedValue {
@@ -105,7 +97,9 @@ impl Database {
         let mut instances = HashMap::new();
         instances.insert(InstanceName::from("_meta"), meta_instance);
         let mut database = Database { instances };
-        database.load_instance(&InstanceName::from("_meta")).unwrap();
+        database
+            .load_instance(&InstanceName::from("_meta"))
+            .unwrap();
         database
     }
 
@@ -124,7 +118,10 @@ impl Database {
 
         // Persist entity settings
         for entity in entities.iter() {
-            let meta_instance = self.instances.get_mut(&InstanceName::from("_meta")).unwrap();
+            let meta_instance = self
+                .instances
+                .get_mut(&InstanceName::from("_meta"))
+                .unwrap();
             let data = meta_instance
                 .data
                 .entry(EntityName::from("_meta"))
@@ -191,6 +188,7 @@ impl Database {
                 file.lock_exclusive()?;
                 instance.data = serde_json::from_slice(serde_json::to_string(&json)?.as_bytes())?;
                 file.write_all(serde_json::to_string(&json)?.as_bytes())?;
+                file.sync_all()?;
                 fs2::FileExt::unlock(&file)?
             }
         }
@@ -465,6 +463,7 @@ impl Database {
             file.lock_exclusive()?;
             file.set_len(0)?;
             file.write_all(serde_json::to_string(&instance.data)?.as_bytes())?;
+            file.sync_all()?;
             fs2::FileExt::unlock(&file)?
         }
         Ok(())
