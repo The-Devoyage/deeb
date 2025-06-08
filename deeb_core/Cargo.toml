@@ -1,6 +1,6 @@
 [package]
 name = "deeb_core"
-version = "0.0.2"
+version = "0.0.3"
 edition = "2024"
 license = "MIT"
 description = "Core library for an ACID compliant JSON embeddable database written in Rust."
@@ -14,3 +14,4 @@ anyhow = "1.0.86"
 log = "0.4.21"
 fs2 = "0.4.3"
 uuid = { version= "1.8.0", features = ["v4"] }
+bson = "2.14.0"

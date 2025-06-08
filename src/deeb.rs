@@ -5,7 +5,7 @@ use serde_json::Value;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::{Database, Entity, ExecutedValue, Name, Operation, Query, Transaction};
+use crate::{Database, Entity, ExecutedValue, InstanceName, Operation, Query, Transaction};
 
 #[derive(Clone, Debug)]
 pub struct Deeb {
@@ -75,7 +75,7 @@ impl Deeb {
         entities: Vec<Entity>,
     ) -> Result<&Self, Error>
     where
-        N: Into<Name> + Copy,
+        N: Into<InstanceName> + Copy,
     {
         debug!("Adding instance");
         let mut db = self.db.write().await;
