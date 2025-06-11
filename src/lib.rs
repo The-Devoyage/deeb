@@ -186,8 +186,11 @@ mod deeb;
 pub use crate::deeb::Deeb;
 pub use deeb_core::{
     database::{
-        find_many_options::FindManyOptions, instance_name::InstanceName, query::Query,
-        transaction::Transaction, Database, DbResult, ExecutedValue, Operation,
+        find_many_options::{FindManyOptions, FindManyOrder, OrderDirection},
+        instance_name::InstanceName,
+        query::Query,
+        transaction::Transaction,
+        Database, DbResult, ExecutedValue, Operation,
     },
     entity::{Entity, EntityName},
 };

@@ -1,13 +1,12 @@
 use anyhow::Error;
+use deeb_core::database::find_many_options::FindManyOptions;
 use log::*;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::{
-    Database, Entity, ExecutedValue, FindManyOptions, InstanceName, Operation, Query, Transaction,
-};
+use crate::{Database, Entity, ExecutedValue, InstanceName, Operation, Query, Transaction};
 
 #[derive(Clone, Debug)]
 pub struct Deeb {
@@ -272,7 +271,23 @@ impl Deeb {
     /// #   age: i32
     /// # }
     /// # db.insert::<User>(&user, User {id: 1, name: "Joey".to_string(), age: 10}, None).await?;
-    /// db.find_many::<User>(&user, Query::eq("age", 10), None, None).await?;
+    /// db
+    /// .find_many::<User>(
+    ///     &user,
+    ///     Query::eq("age", 10),
+    ///     Some(FindManyOptions{
+    ///         skip: None,
+    ///         limit: Some(10),
+    ///         order: Some(vec![
+    ///             FindManyOrder {
+    ///                 property: "name".to_string(),
+    ///                 direction: OrderDirection::Ascending
+    ///
+    ///             }
+    ///         ])
+    ///     }),
+    ///     None
+    /// ).await?;
     /// # Ok(())
     /// # }
     /// ```

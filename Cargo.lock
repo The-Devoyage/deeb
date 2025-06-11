@@ -340,11 +340,11 @@ checksum = "7a81dae078cea95a014a339291cec439d2f232ebe854a9d672b796c6afafa9b7"
 
 [[package]]
 name = "deeb"
-version = "0.0.10"
+version = "0.0.11"
 dependencies = [
  "anyhow",
  "criterion",
- "deeb_core 0.0.3",
+ "deeb_core 0.0.4",
  "deeb_macros",
  "env_logger",
  "fs2",
@@ -371,7 +371,7 @@ dependencies = [
 
 [[package]]
 name = "deeb_core"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "anyhow",
  "bson",

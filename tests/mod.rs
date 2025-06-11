@@ -67,7 +67,6 @@ async fn spawn_deeb() -> Result<(Deeb, Entity, Entity, Entity), Error> {
 
     db.delete_many(&user, Query::All, None).await?;
     db.delete_many(&comment, Query::All, None).await?;
-    // db.delete_many(&user_address, Query::All, None).await?;
 
     // Populate initial data
     db.insert::<User>(
@@ -328,6 +327,7 @@ async fn find_many_with_limit() -> Result<(), Error> {
     let options = Some(FindManyOptions {
         limit: Some(2),
         skip: None,
+        order: None,
     });
 
     let result = db
@@ -346,6 +346,7 @@ async fn find_many_with_skip() -> Result<(), Error> {
     let options = Some(FindManyOptions {
         limit: None,
         skip: Some(1),
+        order: None,
     });
 
     let result = db
@@ -364,6 +365,7 @@ async fn find_many_with_limit_and_skip() -> Result<(), Error> {
     let options = Some(FindManyOptions {
         limit: Some(1),
         skip: Some(1),
+        order: None,
     });
 
     let result = db
@@ -372,6 +374,30 @@ async fn find_many_with_limit_and_skip() -> Result<(), Error> {
         .ok_or_else(|| Error::msg("Expected Users but found none"))?;
 
     assert_eq!(result.len(), 1);
+    Ok(())
+}
+
+#[tokio::test]
+async fn find_many_with_ordering() -> Result<(), Error> {
+    let (db, user, ..) = spawn_deeb().await?;
+    let query = Query::eq("age", 0.5);
+    let options = Some(FindManyOptions {
+        limit: None,
+        skip: None,
+        order: Some(vec![FindManyOrder {
+            property: "name".to_string(),
+            direction: OrderDirection::Ascending,
+        }]),
+    });
+
+    let result = db
+        .find_many::<User>(&user, query, options, None)
+        .await?
+        .ok_or_else(|| Error::msg("Expected Users but found none"))?;
+
+    let names: Vec<String> = result.iter().map(|u| u.name.clone()).collect();
+
+    assert_eq!(names, vec!["magnolia", "oliver", "olliard"]);
     Ok(())
 }
 
