@@ -152,8 +152,8 @@ pub fn derive_deeb(input: TokenStream) -> TokenStream {
                 Ok(db.find_one::<#name>(&Self::entity(), query, transaction).await?)
             }
 
-            pub async fn find_many(db: &Deeb, query: Query, transaction: Option<&mut Transaction>) -> DbResult<Option<Vec<Self>>> {
-                Ok(db.find_many::<#name>(&Self::entity(), query, transaction).await?)
+            pub async fn find_many(db: &Deeb, query: Query, find_many_options: Option<FindManyOptions>, transaction: Option<&mut Transaction>) -> DbResult<Option<Vec<Self>>> {
+                Ok(db.find_many::<#name>(&Self::entity(), query, find_many_options, transaction).await?)
             }
 
             pub async fn insert(db: &Deeb, value: Self, transaction: Option<&mut Transaction>) -> DbResult<Self> {

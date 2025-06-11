@@ -1,4 +1,5 @@
 use anyhow::Error;
+use deeb_core::database::find_many_options::FindManyOptions;
 use log::*;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::Value;
@@ -270,7 +271,23 @@ impl Deeb {
     /// #   age: i32
     /// # }
     /// # db.insert::<User>(&user, User {id: 1, name: "Joey".to_string(), age: 10}, None).await?;
-    /// db.find_many::<User>(&user, Query::eq("age", 10), None).await?;
+    /// db
+    /// .find_many::<User>(
+    ///     &user,
+    ///     Query::eq("age", 10),
+    ///     Some(FindManyOptions{
+    ///         skip: None,
+    ///         limit: Some(10),
+    ///         order: Some(vec![
+    ///             FindManyOrder {
+    ///                 property: "name".to_string(),
+    ///                 direction: OrderDirection::Ascending
+    ///
+    ///             }
+    ///         ])
+    ///     }),
+    ///     None
+    /// ).await?;
     /// # Ok(())
     /// # }
     /// ```
@@ -279,6 +296,7 @@ impl Deeb {
         &self,
         entity: &Entity,
         query: Query,
+        find_many_options: Option<FindManyOptions>,
         transaction: Option<&mut Transaction>,
     ) -> Result<Option<Vec<T>>, Error>
     where
@@ -289,13 +307,14 @@ impl Deeb {
             let operation = Operation::FindMany {
                 entity: entity.clone(),
                 query: query.clone(),
+                find_many_options,
             };
             transaction.add_operation(operation);
             return Ok(None);
         }
 
         let db = self.db.read().await;
-        let values = db.find_many(entity, query)?;
+        let values = db.find_many(entity, query, find_many_options)?;
         trace!("Found values: {:?}", values);
         let typed: Result<Vec<T>, _> = values.into_iter().map(serde_json::from_value).collect();
         Ok(Some(typed?))
@@ -582,8 +601,12 @@ impl Deeb {
                 Operation::FindOne { entity, query } => db
                     .find_one(&entity, query.clone())
                     .map(|_value| (operation.clone(), ExecutedValue::FoundOne)),
-                Operation::FindMany { entity, query } => db
-                    .find_many(&entity, query.clone())
+                Operation::FindMany {
+                    entity,
+                    query,
+                    find_many_options,
+                } => db
+                    .find_many(&entity, query.clone(), find_many_options.clone())
                     .map(|_values| (operation.clone(), ExecutedValue::FoundMany)),
                 Operation::DeleteOne { entity, query } => db
                     .delete_one(&entity, query.clone())

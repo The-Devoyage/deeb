@@ -1,5 +1,6 @@
 use anyhow::Error;
 use database_instance::DatabaseInstance;
+use find_many_options::{FindManyOptions, FindManyOrder, OrderDirection};
 use fs2::FileExt;
 use instance_name::InstanceName;
 use log::*;
@@ -13,6 +14,7 @@ use serde_json::{Map, Value, json};
 use crate::entity::{Entity, EntityName};
 
 pub mod database_instance;
+pub mod find_many_options;
 pub mod instance_name;
 pub mod query;
 pub mod transaction;
@@ -50,6 +52,7 @@ pub enum Operation {
     FindMany {
         entity: Entity,
         query: Query,
+        find_many_options: Option<FindManyOptions>,
     },
     DeleteOne {
         entity: Entity,
@@ -78,6 +81,18 @@ pub enum Operation {
         key: String,
         value: Value,
     },
+}
+
+fn compare_values(a: &Value, b: &Value) -> std::cmp::Ordering {
+    match (a, b) {
+        (Value::Number(a), Value::Number(b)) => a
+            .as_f64()
+            .partial_cmp(&b.as_f64())
+            .unwrap_or(std::cmp::Ordering::Equal),
+        (Value::String(a), Value::String(b)) => a.cmp(b),
+        (Value::Bool(a), Value::Bool(b)) => a.cmp(b),
+        _ => std::cmp::Ordering::Equal, // fallback for Null, Object, Array, etc.
+    }
 }
 
 /// A database that stores multiple instances of data.
@@ -279,7 +294,12 @@ impl Database {
             .ok_or_else(|| Error::msg("Value not found"))
     }
 
-    pub fn find_many(&self, entity: &Entity, query: Query) -> DbResult<Vec<Value>> {
+    pub fn find_many(
+        &self,
+        entity: &Entity,
+        query: Query,
+        find_many_options: Option<FindManyOptions>,
+    ) -> DbResult<Vec<Value>> {
         let instance = self
             .get_instance_by_entity(entity)
             .ok_or_else(|| Error::msg("Entity not found"))?;
@@ -288,7 +308,12 @@ impl Database {
             .get(&entity.name)
             .ok_or_else(|| Error::msg("Data not found"))?;
         let associated_entities = query.associated_entities();
-        let data = data
+        let FindManyOptions { skip, limit, order } = find_many_options.unwrap_or(FindManyOptions {
+            skip: None,
+            limit: None,
+            order: None,
+        });
+        let mut data = data
             .iter()
             .map(|value| {
                 let mut value = value.clone();
@@ -309,7 +334,7 @@ impl Database {
                                                                               //safely
                     );
                     let associated_data = self
-                        .find_many(associated_entity, association_query)
+                        .find_many(associated_entity, association_query, None)
                         .unwrap();
 
                     value.as_object_mut().unwrap().insert(
@@ -320,10 +345,29 @@ impl Database {
                 value
             })
             .collect::<Vec<Value>>();
+        if let Some(ordering) = order {
+            for FindManyOrder {
+                property,
+                direction,
+            } in ordering.iter().rev()
+            {
+                data.sort_by(|a, b| {
+                    let a_val = a.get(property).cloned().unwrap_or(Value::Null);
+                    let b_val = b.get(property).cloned().unwrap_or(Value::Null);
+                    let ord = compare_values(&a_val, &b_val);
+                    match direction {
+                        OrderDirection::Ascending => ord,
+                        OrderDirection::Descending => ord.reverse(),
+                    }
+                });
+            }
+        }
         let result = data
             .iter()
             .filter(|value| query.clone().matches(value).unwrap_or(false));
-        Ok(result.cloned().collect())
+        let skipped = result.skip(skip.unwrap_or(0) as usize);
+        let limited = skipped.take(limit.unwrap_or(i32::MAX) as usize);
+        Ok(limited.cloned().collect())
     }
 
     pub fn delete_one(&mut self, entity: &Entity, query: Query) -> DbResult<Value> {

@@ -1,6 +1,10 @@
 # Deeb Changelog
 
-## v0.10.0
+## v0.0.11
+
+- Add Count, Skip, Limit, and Order functionatlity.
+
+## v0.0.10
 
 - Improve ACID Compliance with fsync.
 

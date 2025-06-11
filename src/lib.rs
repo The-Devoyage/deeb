@@ -178,7 +178,7 @@
 //!
 //! ### Data Management
 //!
-//! - `add_key` : [Add a new key](deeb::Deeb::add_key) to every document in a collection 
+//! - `add_key` : [Add a new key](deeb::Deeb::add_key) to every document in a collection
 //! - `drop_key` : [Drop a key](deeb::Deeb::drop_key) from every document in a collection
 
 mod deeb;
@@ -186,7 +186,11 @@ mod deeb;
 pub use crate::deeb::Deeb;
 pub use deeb_core::{
     database::{
-        instance_name::InstanceName, query::Query, transaction::Transaction, Database, ExecutedValue, Operation, DbResult
+        find_many_options::{FindManyOptions, FindManyOrder, OrderDirection},
+        instance_name::InstanceName,
+        query::Query,
+        transaction::Transaction,
+        Database, DbResult, ExecutedValue, Operation,
     },
     entity::{Entity, EntityName},
 };
