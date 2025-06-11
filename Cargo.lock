@@ -372,6 +372,8 @@ dependencies = [
 [[package]]
 name = "deeb_core"
 version = "0.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8c283aab4084696562c417da27b6233daf3112ebc733a4762775efd98b221d0a"
 dependencies = [
  "anyhow",
  "bson",
@@ -384,7 +386,9 @@ dependencies = [
 
 [[package]]
 name = "deeb_macros"
-version = "0.0.2"
+version = "0.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2f0a2a7c50e75e6e7a9aa4e882b01ed3a0be6362c2b8d7def930e4ddad30df9d"
 dependencies = [
  "anyhow",
  "deeb_core 0.0.2",
