@@ -1,5 +1,5 @@
 use actix_web::{App, HttpServer, web::Data};
-use api::{find_one, insert_one};
+use api::{find_one, insert_one, find_many};
 use app_data::AppData;
 use clap::Parser;
 use cli::Cli;
@@ -26,6 +26,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(Data::new(app_data))
             .service(insert_one::insert_one)
             .service(find_one::find_one)
+            .service(find_many::find_many)
     })
     .bind((cli.host, cli.port))?
     .run()
