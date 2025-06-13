@@ -6,7 +6,7 @@ use actix_web::{
 };
 use deeb::{Entity, FindManyOptions, Query};
 use serde::Deserialize;
-use serde_json::{Value, json};
+use serde_json::Value;
 
 use super::{DeebPath, Response};
 

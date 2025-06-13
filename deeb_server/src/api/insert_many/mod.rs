@@ -1,0 +1,94 @@
+use actix_web::{
+    Responder,
+    http::StatusCode,
+    post,
+    web::{Data, Json, Path},
+};
+use deeb::Entity;
+use serde_json::Value;
+
+use super::Response;
+
+use crate::{api::DeebPath, app_data::AppData};
+
+#[post("/insert-many/{entity_name}")]
+pub async fn insert_many(
+    app_data: Data<AppData>,
+    document: Json<Vec<Value>>,
+    path: Path<DeebPath>,
+) -> impl Responder {
+    let database = app_data.database.clone();
+    let entity = Entity::new(&path.entity_name);
+
+    // Create Instance
+    match database
+        .deeb
+        .add_instance(
+            "instance_name",
+            "./first_instance.json",
+            vec![entity.clone()],
+        )
+        .await
+    {
+        Ok(_) => {}
+        Err(err) => {
+            log::error!("{:?}", err);
+            return Response::new(StatusCode::INTERNAL_SERVER_ERROR)
+                .message("Failed to get instance.");
+        }
+    };
+
+    // Insert Payload
+    match database
+        .deeb
+        .insert_many(&entity, document.into_inner(), None)
+        .await
+    {
+        Ok(values) => {
+            let json_array = serde_json::Value::Array(values);
+            Response::new(StatusCode::OK)
+                .data(json_array)
+                .message("Documents inserted.")
+        }
+        Err(err) => {
+            log::error!("{:?}", err);
+            Response::new(StatusCode::INTERNAL_SERVER_ERROR).message(&err.to_string())
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::database::Database;
+    use actix_web::{App, http::header, test};
+    use serde_json::json;
+
+    use super::*;
+
+    #[actix_web::test]
+    async fn test_insert_many() {
+        let database = Database::new();
+        let app_data = AppData { database };
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::new(app_data))
+                .service(insert_many),
+        )
+        .await;
+        let req = test::TestRequest::post()
+            .uri("/insert-many/dog")
+            .insert_header((header::CONTENT_TYPE, "application/json"))
+            .set_payload(
+                serde_json::Value::Array(vec![
+                    json!({"name": "bozo"}),
+                    json!({"name": "bingo"}),
+                    json!({"name": "congo"}),
+                ])
+                .to_string(),
+            )
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+        println!("{:?}", resp.response());
+        assert!(resp.status().is_success());
+    }
+}

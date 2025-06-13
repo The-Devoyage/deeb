@@ -5,6 +5,7 @@ use serde_json::Value;
 pub mod find_one;
 pub mod insert_one;
 pub mod find_many;
+pub mod insert_many;
 
 #[derive(Serialize)]
 pub struct Response {
