@@ -92,23 +92,17 @@ mod tests {
         )
         .await;
 
-        //TODO: Insert many instead
         let req = test::TestRequest::post()
-            .uri("/insert-one/dog")
+            .uri("/insert-many/dog")
             .insert_header((header::CONTENT_TYPE, "application/json"))
-            .set_payload(json!({"name": "Scooter"}).to_string())
-            .to_request();
-        test::call_service(&app, req).await;
-        let req = test::TestRequest::post()
-            .uri("/insert-one/dog")
-            .insert_header((header::CONTENT_TYPE, "application/json"))
-            .set_payload(json!({"name": "Mango"}).to_string())
-            .to_request();
-        test::call_service(&app, req).await;
-        let req = test::TestRequest::post()
-            .uri("/insert-one/dog")
-            .insert_header((header::CONTENT_TYPE, "application/json"))
-            .set_payload(json!({"name": "Banjo"}).to_string())
+            .set_payload(
+                serde_json::Value::Array(vec![
+                    json!({"name": "Scooter"}),
+                    json!({"name": "Mango"}),
+                    json!({"name": "Banjo"}),
+                ])
+                .to_string(),
+            )
             .to_request();
         test::call_service(&app, req).await;
 
