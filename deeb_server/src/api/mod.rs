@@ -9,6 +9,7 @@ pub mod insert_many;
 pub mod delete_one;
 pub mod delete_many;
 pub mod update_one;
+pub mod update_many;
 
 #[derive(Serialize)]
 pub struct Response {
