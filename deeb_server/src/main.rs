@@ -1,5 +1,5 @@
 use actix_web::{App, HttpServer, web::Data};
-use api::{find_many, find_one, insert_many, insert_one};
+use api::{delete_many, delete_one, find_many, find_one, insert_many, insert_one};
 use app_data::AppData;
 use clap::Parser;
 use cli::Cli;
@@ -28,6 +28,8 @@ async fn main() -> std::io::Result<()> {
             .service(find_one::find_one)
             .service(find_many::find_many)
             .service(insert_many::insert_many)
+            .service(delete_one::delete_one)
+            .service(delete_many::delete_many)
     })
     .bind((cli.host, cli.port))?
     .run()

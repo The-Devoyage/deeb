@@ -6,6 +6,8 @@ pub mod find_one;
 pub mod insert_one;
 pub mod find_many;
 pub mod insert_many;
+pub mod delete_one;
+pub mod delete_many;
 
 #[derive(Serialize)]
 pub struct Response {
