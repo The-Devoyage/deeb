@@ -1,31 +1,8 @@
-[package]
-name = "deeb"
-version = "0.0.11"
-edition = "2021"
-license = "MIT"
-description = "An ACID compliant JSON embeddable database built in Rust."
-homepage = "https://www.github.com/the-devoyage/deeb"
-repository = "https://www.github.com/the-devoyage/deeb"
+[workspace]
+members = [
+  "deeb",
+  "deeb_server",
+  "deeb_core",
+  "deeb_macros"
+]
 
-[lib]
-name = "deeb"
-path = "src/lib.rs"
-
-[dependencies]
-serde = { version = "1.0.203", features = ["derive"] }
-serde_json = "1.0.117"
-tokio = { version = "1.37.0", features = ["full"] }
-anyhow = "1.0.86"
-uuid = { version= "1.8.0", features = ["v4"] }
-log = "0.4.21"
-env_logger = "0.11.3"
-fs2 = "0.4.3"
-deeb_macros = "0.0.3"
-deeb_core = "0.0.4"
-
-[dev-dependencies]
-criterion = { version = "0.4", features = ["html_reports", "async_tokio"] }
-
-[[bench]]
-name = "deeb_bench"
-harness = false

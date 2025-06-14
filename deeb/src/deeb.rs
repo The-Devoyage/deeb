@@ -105,12 +105,12 @@ impl Deeb {
     /// #   name: String,
     /// #   age: i32
     /// # }
-    /// db.insert::<User>(&user, User {id: 1, name: "Joey".to_string(), age: 10}, None).await?;
+    /// db.insert_one::<User>(&user, User {id: 1, name: "Joey".to_string(), age: 10}, None).await?;
     /// # Ok(())
     /// # }
     /// ```
     #[allow(dead_code)]
-    pub async fn insert<T>(
+    pub async fn insert_one<T>(
         &self,
         entity: &Entity,
         value: T,
@@ -131,7 +131,7 @@ impl Deeb {
         }
 
         let mut db = self.db.write().await;
-        let value = db.insert(entity, value)?;
+        let value = db.insert_one(entity, value)?;
         let name = db.get_instance_name_by_entity(entity)?;
         db.commit(vec![name])?;
         let typed: Result<T, _> = serde_json::from_value(value);
@@ -215,7 +215,7 @@ impl Deeb {
     /// #   name: String,
     /// #   age: i32
     /// # }
-    /// # db.insert::<User>(&user, User {id: 1, name: "Joey D".to_string(), age: 10}, None).await?;
+    /// # db.insert_one::<User>(&user, User {id: 1, name: "Joey D".to_string(), age: 10}, None).await?;
     /// db.find_one::<User>(&user, Query::eq("name", "Joey D"), None).await?;
     /// # Ok(())
     /// # }
@@ -270,7 +270,7 @@ impl Deeb {
     /// #   name: String,
     /// #   age: i32
     /// # }
-    /// # db.insert::<User>(&user, User {id: 1, name: "Joey".to_string(), age: 10}, None).await?;
+    /// # db.insert_one::<User>(&user, User {id: 1, name: "Joey".to_string(), age: 10}, None).await?;
     /// db
     /// .find_many::<User>(
     ///     &user,
@@ -340,7 +340,7 @@ impl Deeb {
     /// #   name: String,
     /// #   age: i32
     /// # }
-    /// # db.insert::<User>(&user, User {id: 1, name: "Joey".to_string(), age: 10}, None).await?;
+    /// # db.insert_one::<User>(&user, User {id: 1, name: "Joey".to_string(), age: 10}, None).await?;
     /// db.delete_one(&user, Query::eq("name", "Joey"), None).await?;
     /// # Ok(())
     /// # }
@@ -437,7 +437,7 @@ impl Deeb {
     /// #   age: Option<i32>,
     /// #   name: Option<String>
     /// # }
-    /// # db.insert::<User>(&user, User {id: 1, name: "Joey".to_string(), age: 10}, None).await?;
+    /// # db.insert_one::<User>(&user, User {id: 1, name: "Joey".to_string(), age: 10}, None).await?;
     /// db.update_one::<User, UpdateUser>(&user, Query::eq("age", 10), UpdateUser{age: Some(3), name: None}, None).await?;
     /// # Ok(())
     /// # }
@@ -579,8 +579,8 @@ impl Deeb {
     /// #   name: String,
     /// #   age: i32
     /// # }
-    /// db.insert::<User>(&user, User {id: 1, name: "Steve".to_string(), age: 3}, Some(&mut transaction)).await?;
-    /// db.insert::<User>(&user, User {id: 2, name: "Johnny".to_string(), age: 3}, Some(&mut transaction)).await?;
+    /// db.insert_one::<User>(&user, User {id: 1, name: "Steve".to_string(), age: 3}, Some(&mut transaction)).await?;
+    /// db.insert_one::<User>(&user, User {id: 2, name: "Johnny".to_string(), age: 3}, Some(&mut transaction)).await?;
     /// db.commit(&mut transaction).await?;
     /// # Ok(())
     /// # }
@@ -593,7 +593,7 @@ impl Deeb {
         for operation in transaction.operations.iter() {
             let result = match operation {
                 Operation::InsertOne { entity, value } => db
-                    .insert(&entity, value.clone())
+                    .insert_one(&entity, value.clone())
                     .map(|value| (operation.clone(), ExecutedValue::InsertedOne(value))),
                 Operation::InsertMany { entity, values } => db
                     .insert_many(&entity, values.clone())
@@ -708,14 +708,14 @@ impl Deeb {
                 },
                 Operation::DeleteOne { entity, .. } => match executed_value {
                     ExecutedValue::DeletedOne(value) => {
-                        db.insert(&entity, value.clone()).unwrap();
+                        db.insert_one(&entity, value.clone()).unwrap();
                     }
                     _ => {}
                 },
                 Operation::DeleteMany { entity, .. } => match executed_value {
                     ExecutedValue::DeletedMany(values) => {
                         for value in values.iter() {
-                            db.insert(&entity, value.clone()).unwrap();
+                            db.insert_one(&entity, value.clone()).unwrap();
                         }
                     }
                     _ => {}
@@ -747,7 +747,7 @@ impl Deeb {
     /// #   name: String,
     /// #   age: i32
     /// # }
-    /// # db.insert::<User>(&user, User {id: 1, name: "Joey".to_string(), age: 10}, None).await?;
+    /// # db.insert_one::<User>(&user, User {id: 1, name: "Joey".to_string(), age: 10}, None).await?;
     /// db.drop_key(&user, "age").await?;
     /// # Ok(())
     /// # }

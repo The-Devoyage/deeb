@@ -1,4 +1,5 @@
 use anyhow::Error;
+use chrono::{DateTime, Utc};
 use database_instance::DatabaseInstance;
 use find_many_options::{FindManyOptions, FindManyOrder, OrderDirection};
 use fs2::FileExt;
@@ -8,6 +9,7 @@ use query::Query;
 use std::collections::HashMap;
 use std::fs::{self, OpenOptions};
 use std::io::{Read, Write};
+use ulid::Ulid;
 
 use serde_json::{Map, Value, json};
 
@@ -233,12 +235,34 @@ impl Database {
     }
 
     // Operations
-    pub fn insert(&mut self, entity: &Entity, insert_value: Value) -> DbResult<Value> {
+    pub fn insert_one(&mut self, entity: &Entity, mut insert_value: Value) -> DbResult<Value> {
         // Check insert_value, it needs to be a JSON object.
         // It can not have field or `_id`.
         if !insert_value.is_object() {
             return Err(Error::msg("Value must be a JSON object"));
         }
+
+        // Insert _id if it's not present
+        let mut _id = None;
+        if insert_value.get("_id").is_none() {
+            _id = Some(Ulid::new());
+            if let Some(obj) = insert_value.as_object_mut() {
+                obj.insert("_id".to_string(), json!(_id.unwrap().to_string()));
+            }
+        }
+
+        if insert_value.get("_created_at").is_none() {
+            let server_time = if let Some(id) = _id {
+                DateTime::<Utc>::from(id.datetime())
+            } else {
+                Utc::now()
+            };
+
+            if let Some(obj) = insert_value.as_object_mut() {
+                obj.insert("_created_at".to_string(), json!(server_time.to_rfc3339()));
+            }
+        }
+
         let instance = self
             .get_instance_by_entity_mut(entity)
             .ok_or_else(|| Error::msg("Entity not found"))?;
@@ -254,11 +278,31 @@ impl Database {
     pub fn insert_many(
         &mut self,
         entity: &Entity,
-        insert_values: Vec<Value>,
+        mut insert_values: Vec<Value>,
     ) -> DbResult<Vec<Value>> {
-        for insert_value in insert_values.iter() {
+        for insert_value in insert_values.iter_mut() {
             if !insert_value.is_object() {
                 return Err(Error::msg("Value must be a JSON object"));
+            }
+            // Insert _id if it's not present
+            let mut _id = None;
+            if insert_value.get("_id").is_none() {
+                _id = Some(Ulid::new());
+                if let Some(obj) = insert_value.as_object_mut() {
+                    obj.insert("_id".to_string(), json!(_id.unwrap().to_string()));
+                }
+            }
+
+            if insert_value.get("_created_at").is_none() {
+                let server_time = if let Some(id) = _id {
+                    DateTime::<Utc>::from(id.datetime())
+                } else {
+                    Utc::now()
+                };
+
+                if let Some(obj) = insert_value.as_object_mut() {
+                    obj.insert("_created_at".to_string(), json!(server_time.to_rfc3339()));
+                }
             }
         }
         let instance = self

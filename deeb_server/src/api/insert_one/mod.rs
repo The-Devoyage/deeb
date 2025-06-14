@@ -41,7 +41,7 @@ pub async fn insert_one(
     // Insert Payload
     match database
         .deeb
-        .insert(&entity, document.into_inner(), None)
+        .insert_one(&entity, document.into_inner(), None)
         .await
     {
         Ok(value) => Response::new(StatusCode::OK)

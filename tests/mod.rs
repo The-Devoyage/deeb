@@ -164,7 +164,7 @@ async fn insert_one_macro() -> Result<(), Error> {
         name: "nick".to_string(),
         age: 35.0,
     };
-    let result = User::insert(&db, value, None).await?;
+    let result = User::insert_one(&db, value, None).await?;
     assert_eq!(
         result,
         serde_json::from_value::<User>(json!({"name": "nick", "age": 35, "id": 12345}))?
@@ -514,7 +514,7 @@ async fn transaction() -> Result<(), Error> {
 async fn transaction_macro() -> Result<(), Error> {
     let (db, user, _comment, ..) = spawn_deeb().await?;
     let mut transaction = db.begin_transaction().await;
-    User::insert(
+    User::insert_one(
         &db,
         User {
             name: "Al".to_string(),
@@ -524,7 +524,7 @@ async fn transaction_macro() -> Result<(), Error> {
         Some(&mut transaction),
     )
     .await?;
-    User::insert(
+    User::insert_one(
         &db,
         User {
             name: "Peg".to_string(),
@@ -534,7 +534,7 @@ async fn transaction_macro() -> Result<(), Error> {
         Some(&mut transaction),
     )
     .await?;
-    User::insert(
+    User::insert_one(
         &db,
         User {
             name: "Bud".to_string(),

@@ -74,14 +74,14 @@
 //!     .await?;
 //!
 //!    // Single Operations
-//!    User::insert(&db, User {id: 1, name: "George".to_string(), age: 10}, None).await?;
+//!    User::insert_one(&db, User {id: 1, name: "George".to_string(), age: 10}, None).await?;
 //!    User::find_one(&db, Query::eq("name", "George"), None).await?;
 //!
 //!    // Perform a transaction
 //!    let mut transaction = db.begin_transaction().await;
 //!
-//!    User::insert(&db, User {id: 1, name: "Steve".to_string(), age: 3}, Some(&mut transaction)).await?;
-//!    User::insert(&db, User {id: 2, name: "Johnny".to_string(), age: 3}, Some(&mut transaction)).await?;
+//!    User::insert_one(&db, User {id: 1, name: "Steve".to_string(), age: 3}, Some(&mut transaction)).await?;
+//!    User::insert_one(&db, User {id: 2, name: "Johnny".to_string(), age: 3}, Some(&mut transaction)).await?;
 //!    Comment::insert_many(
 //!           &db,
 //!           vec![
@@ -149,7 +149,7 @@
 //!
 //! ### Operations
 //!
-//! - `insert`: [Insert](deeb::Deeb::insert) a new document into the database
+//! - `insert_one`: [Insert One](deeb::Deeb::insert_one) a new document into the database
 //! - `find_one`: [Find](deeb::Deeb::find_one) a single document in the database
 //! - `find_many`: [Find multiple](deeb::Deeb::find_many) documents in the database
 //! - `update_one`: [Update a single](deeb::Deeb::update_one) document in the database
