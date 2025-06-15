@@ -49,7 +49,9 @@ pub async fn delete_one(
     };
 
     match database.deeb.delete_one(&entity, query, None).await {
-        Ok(Some(is_deleted)) => Response::new(StatusCode::OK).data(serde_json::Value::Bool(is_deleted)),
+        Ok(Some(is_deleted)) => {
+            Response::new(StatusCode::OK).data(serde_json::Value::Bool(is_deleted))
+        }
         Ok(None) => Response::new(StatusCode::OK).message("Document not found."),
         Err(err) => {
             log::error!("{:?}", err);
@@ -60,7 +62,7 @@ pub async fn delete_one(
 
 #[cfg(test)]
 mod tests {
-    use crate::{api::insert_one::insert_one, database::Database};
+    use crate::api::insert_one::insert_one;
     use actix_web::{App, http::header, test};
     use serde_json::json;
 
@@ -68,8 +70,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_delete_one() {
-        let database = Database::new();
-        let app_data = AppData { database };
+        let app_data = AppData::new().unwrap();
         let app = test::init_service(
             App::new()
                 .app_data(Data::new(app_data))

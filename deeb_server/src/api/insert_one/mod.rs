@@ -56,7 +56,6 @@ pub async fn insert_one(
 
 #[cfg(test)]
 mod tests {
-    use crate::database::Database;
     use actix_web::{App, http::header, test};
     use serde_json::json;
 
@@ -64,8 +63,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_insert_one() {
-        let database = Database::new();
-        let app_data = AppData { database };
+        let app_data = AppData::new().unwrap();
         let app =
             test::init_service(App::new().app_data(Data::new(app_data)).service(insert_one)).await;
         let req = test::TestRequest::post()

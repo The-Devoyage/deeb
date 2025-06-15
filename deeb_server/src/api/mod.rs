@@ -2,14 +2,15 @@ use actix_web::{HttpRequest, HttpResponse, Responder, body::BoxBody, http::Statu
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-pub mod find_one;
-pub mod insert_one;
-pub mod find_many;
-pub mod insert_many;
-pub mod delete_one;
+pub mod auth;
 pub mod delete_many;
-pub mod update_one;
+pub mod delete_one;
+pub mod find_many;
+pub mod find_one;
+pub mod insert_many;
+pub mod insert_one;
 pub mod update_many;
+pub mod update_one;
 
 #[derive(Serialize)]
 pub struct Response {

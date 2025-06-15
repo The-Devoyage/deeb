@@ -74,7 +74,7 @@ pub async fn find_many(
 
 #[cfg(test)]
 mod tests {
-    use crate::{api::insert_one::insert_one, database::Database};
+    use crate::api::insert_one::insert_one;
     use actix_web::{App, http::header, test};
     use serde_json::json;
 
@@ -82,8 +82,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_find_many() {
-        let database = Database::new();
-        let app_data = AppData { database };
+        let app_data = AppData::new().unwrap();
         let app = test::init_service(
             App::new()
                 .app_data(Data::new(app_data))

@@ -69,7 +69,7 @@ pub async fn update_many(
 
 #[cfg(test)]
 mod tests {
-    use crate::{api::insert_many, database::Database};
+    use crate::api::insert_many;
     use actix_web::{App, http::header, test};
     use serde_json::json;
 
@@ -77,8 +77,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_update_many() {
-        let database = Database::new();
-        let app_data = AppData { database };
+        let app_data = AppData::new().unwrap();
         let app = test::init_service(
             App::new()
                 .app_data(Data::new(app_data))

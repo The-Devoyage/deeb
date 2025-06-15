@@ -2,4 +2,5 @@
 /deeb_core/target
 /deeb_macros/target
 *.json
+*.env
 
