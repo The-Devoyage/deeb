@@ -3,4 +3,5 @@
 /deeb_macros/target
 *.json
 *.env
+rules.rhai
 

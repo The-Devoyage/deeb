@@ -70,7 +70,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_delete_one() {
-        let app_data = AppData::new().unwrap();
+        let app_data = AppData::new(None).unwrap();
         let app = test::init_service(
             App::new()
                 .app_data(Data::new(app_data))

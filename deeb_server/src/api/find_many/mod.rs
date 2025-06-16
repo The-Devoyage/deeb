@@ -10,7 +10,7 @@ use serde_json::Value;
 
 use super::{DeebPath, Response};
 
-use crate::app_data::AppData;
+use crate::{app_data::AppData, rules::check_access::{check_access, AccessOperation}};
 
 #[derive(Deserialize)]
 pub struct FindManyPayload {
@@ -60,10 +60,12 @@ pub async fn find_many(
         .find_many::<Value>(&entity, query, payload.find_many_options.clone(), None)
         .await
     {
-        Ok(Some(values)) => {
-            let json_array = serde_json::Value::Array(values);
-            Response::new(StatusCode::OK).data(json_array)
-        }
+        Ok(Some(values)) => check_access(
+            &app_data.rules,
+            &AccessOperation::FindMany,
+            &path.entity_name,
+            values,
+        ),
         Ok(None) => Response::new(StatusCode::OK).message("No documents found."),
         Err(err) => {
             log::error!("{:?}", err);
@@ -82,7 +84,7 @@ mod tests {
 
     #[actix_web::test]
     async fn test_find_many() {
-        let app_data = AppData::new().unwrap();
+        let app_data = AppData::new(Some("./rules.rhai".to_string())).unwrap();
         let app = test::init_service(
             App::new()
                 .app_data(Data::new(app_data))
