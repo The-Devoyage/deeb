@@ -53,3 +53,18 @@ impl FromRequest for AuthUser {
         }
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct MaybeAuthUser(pub Option<AuthUser>);
+
+impl FromRequest for MaybeAuthUser {
+    type Error = Error;
+    type Future = Ready<Result<Self, Error>>;
+
+    fn from_request(req: &HttpRequest, payload: &mut Payload) -> Self::Future {
+        match AuthUser::from_request(req, payload).into_inner() {
+            Ok(user) => ready(Ok(MaybeAuthUser(Some(user)))),
+            Err(_) => ready(Ok(MaybeAuthUser(None))),
+        }
+    }
+}

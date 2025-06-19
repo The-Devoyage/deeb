@@ -8,17 +8,30 @@ pub fn create_rules(path: String) -> Result<(), std::io::Error> {
     }
     std::fs::write(
         &path,
-        r#"
-// Default rules.rhai
-// operations: "insert_one" | "find_many" | "find_one" | "update_one" | "update_many" | "delete_one" | "delete_many" 
+        r#"// Default rules.rhai
+// operations: "insert_one" | "insert_many" | "find_one" | "find_many" | "update_one" | "update_many" | "delete_one" | "delete_many" 
 // request: {
 //   user: {
 //     _id: String
 //   }
 // }
 
-fn can_access(entity, operation, request, resource) {
-    if entity == "users" {
+// Dynamically modify a query from the client
+fn apply_query(entity, operation, user, payload) {
+    if entity == "user" {
+        if user == () {
+            throw "User does not exist.";
+        }
+
+        return #{ "Eq": ["_id", request.user._id] }
+    }
+
+    // Return nothing to allow the user query without modification.
+    return
+}
+
+fn check_rule(entity, operation, request, resource) {
+    if entity == "user" {
         return users_rules(operation, request, resource);
     }
 
@@ -29,18 +42,8 @@ fn can_access(entity, operation, request, resource) {
 // Rules for `users` collection
 fn users_rules(operation, request, resource) {
     // Only the user can read/update themselves
-    if operation == "read" || operation == "update" {
+    if operation == "find_one" || operation == "find_many" || operation == "update_one" {
         return request.user._id == resource.id;
-    }
-
-    // Only admin can delete a user
-    if operation == "delete" {
-        return "admin" in request.user.roles;
-    }
-
-    // Allow creating a user only if email ends with our domain
-    if operation == "create" {
-        return request.resource.email.ends_with("@example.com");
     }
 
     return false;

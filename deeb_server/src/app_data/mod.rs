@@ -1,6 +1,9 @@
 use std::io;
 
-use crate::{environment::Environment, rules::load_rules::load_rules};
+use crate::{
+    environment::Environment,
+    rules::{Rules, load_rules::load_rules},
+};
 
 use super::database::Database;
 
@@ -8,20 +11,21 @@ use super::database::Database;
 pub struct AppData {
     pub database: Database,
     pub environment: Environment,
-    pub rules: String,
+    pub rules_worker: Rules,
 }
 
 impl AppData {
     pub fn new(rules_path: Option<String>) -> Result<Self, std::io::Error> {
+        let loaded_rules = load_rules(rules_path);
+        let rules_worker = Rules::new(loaded_rules);
         let environment = Environment::new()
             .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("env load error: {}", e)))?;
         let database = Database::new();
-        let rules = load_rules(rules_path);
 
         Ok(AppData {
             environment,
             database,
-            rules,
+            rules_worker,
         })
     }
 }

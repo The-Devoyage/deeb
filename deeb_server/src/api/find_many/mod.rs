@@ -5,14 +5,14 @@ use actix_web::{
     web::{Data, Json, Path},
 };
 use deeb::{Entity, FindManyOptions, Query};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::{DeebPath, Response};
 
-use crate::{app_data::AppData, rules::check_access::{check_access, AccessOperation}};
+use crate::{app_data::AppData, auth::auth_user::MaybeAuthUser, rules::AccessOperation};
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Default)]
 pub struct FindManyPayload {
     query: Option<Query>,
     find_many_options: Option<FindManyOptions>,
@@ -22,10 +22,25 @@ pub struct FindManyPayload {
 pub async fn find_many(
     app_data: Data<AppData>,
     path: Path<DeebPath>,
-    payload: Option<Json<FindManyPayload>>,
+    payload: Json<Option<FindManyPayload>>,
+    user: MaybeAuthUser,
 ) -> impl Responder {
     let database = app_data.database.clone();
     let entity = Entity::new(&path.entity_name);
+
+    let query = match app_data.rules_worker.get_query(
+        &AccessOperation::FindMany,
+        &path.entity_name,
+        user.0,
+        serde_json::to_value(payload.clone()).ok(),
+    ) {
+        Ok(q) => q,
+        Err(err) => {
+            return Response::new(StatusCode::INTERNAL_SERVER_ERROR).message(&err.to_string());
+        }
+    };
+
+    println!("ALL: {:?}", Query::all());
 
     // Create Instance
     match database
@@ -45,27 +60,59 @@ pub async fn find_many(
         }
     };
 
-    let payload = payload.unwrap_or(Json(FindManyPayload {
-        query: None,
-        find_many_options: None,
-    }));
-
-    let query = match payload.query.clone() {
+    let user_query = match payload.clone().unwrap_or_default().query.clone() {
         Some(q) => q,
         None => Query::All,
     };
 
+    let query = if !query.is_null() {
+        let jsonquery = serde_json::from_value::<Query>(query);
+        if jsonquery.is_err() {
+            return Response::new(StatusCode::INTERNAL_SERVER_ERROR)
+                .message("Failed to get default query.");
+        }
+        Query::and(vec![user_query, jsonquery.unwrap()])
+    } else {
+        user_query
+    };
+
     match database
         .deeb
-        .find_many::<Value>(&entity, query, payload.find_many_options.clone(), None)
+        .find_many::<Value>(
+            &entity,
+            query,
+            payload
+                .clone()
+                .unwrap_or_default()
+                .find_many_options
+                .clone(),
+            None,
+        )
         .await
     {
-        Ok(Some(values)) => check_access(
-            &app_data.rules,
-            &AccessOperation::FindMany,
-            &path.entity_name,
-            values,
-        ),
+        Ok(Some(values)) => {
+            let allowed = app_data.rules_worker.check_rules(
+                &AccessOperation::FindMany,
+                &path.entity_name,
+                values.clone(),
+            );
+            match allowed {
+                Ok(a) => {
+                    if a {
+                        let array = serde_json::Value::Array(values);
+                        return Response::new(StatusCode::OK)
+                            .data(array)
+                            .message("Documents Found.");
+                    } else {
+                        Response::new(StatusCode::INTERNAL_SERVER_ERROR).message("Access Denied")
+                    }
+                }
+                Err(e) => {
+                    log::error!("Access denied: {:?}", e);
+                    Response::new(StatusCode::INTERNAL_SERVER_ERROR).message("Access Denied")
+                }
+            }
+        }
         Ok(None) => Response::new(StatusCode::OK).message("No documents found."),
         Err(err) => {
             log::error!("{:?}", err);

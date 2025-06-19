@@ -17,4 +17,5 @@ futures-util = "0.3.31"
 argon2 = "0.5"
 rand = "0.8"
 chrono = "0.4.41"
-rhai = "1.22.2"
+rhai = { version = "1.22.2", features = ["serde"] }
+thiserror = "2.0.12"
