@@ -2,6 +2,7 @@ use actix_web::{Error, FromRequest, HttpRequest, dev::Payload, web::Data};
 use futures_util::future::{Ready, err, ok, ready};
 use jsonwebtoken::{DecodingKey, Validation, decode};
 use serde::Serialize;
+use thiserror::Error;
 
 use crate::app_data::AppData;
 
@@ -20,6 +21,16 @@ impl From<Claims> for AuthUser {
             email: claims.email,
         }
     }
+}
+
+#[derive(Debug, Error)]
+pub enum AuthUserError {
+    #[error("Invalid token")]
+    InvalidToken,
+    #[error("Token expired")]
+    TokenExpired,
+    #[error("Missing token")]
+    MissingToken,
 }
 
 impl FromRequest for AuthUser {
@@ -46,10 +57,22 @@ impl FromRequest for AuthUser {
 
             match decode::<Claims>(token, &key, &validation) {
                 Ok(data) => ok(data.claims.into()),
-                Err(_) => err(actix_web::error::ErrorUnauthorized("Invalid token")),
+                Err(error) => {
+                    let custom_err = match error.kind() {
+                        jsonwebtoken::errors::ErrorKind::ExpiredSignature => {
+                            AuthUserError::TokenExpired
+                        }
+                        _ => AuthUserError::InvalidToken,
+                    };
+                    err(actix_web::error::ErrorUnauthorized(
+                        custom_err
+                    ))
+                }
             }
         } else {
-            err(actix_web::error::ErrorUnauthorized("No auth header"))
+            err(actix_web::error::ErrorUnauthorized(
+                AuthUserError::MissingToken,
+            ))
         }
     }
 }
@@ -62,9 +85,24 @@ impl FromRequest for MaybeAuthUser {
     type Future = Ready<Result<Self, Error>>;
 
     fn from_request(req: &HttpRequest, payload: &mut Payload) -> Self::Future {
+        // Extract raw auth header to determine intent
+        let has_token = req
+            .headers()
+            .get("Authorization")
+            .and_then(|h| h.to_str().ok())
+            .and_then(|h| h.strip_prefix("Bearer "))
+            .is_some();
+
         match AuthUser::from_request(req, payload).into_inner() {
             Ok(user) => ready(Ok(MaybeAuthUser(Some(user)))),
-            Err(_) => ready(Ok(MaybeAuthUser(None))),
+            Err(_) if !has_token => {
+                // No token = anonymous access
+                ready(Ok(MaybeAuthUser(None)))
+            }
+            Err(e) => {
+                // Token present but invalid = throw
+                ready(Err(e))
+            }
         }
     }
 }

@@ -14,7 +14,7 @@ impl Rules {
 
         thread::spawn(move || {
             let mut engine = Engine::new();
-            engine.set_max_expr_depths(20, 20);
+            engine.set_max_expr_depths(64, 64);
 
             let ast = engine.compile(&script).expect("Compile failed");
 
@@ -33,7 +33,7 @@ impl Rules {
                                 Rules::json_value_to_dynamic(
                                     &serde_json::to_value(req.user).unwrap(),
                                 ),
-                                req.payload,
+                                Rules::json_value_to_dynamic(&req.payload.unwrap_or_default()),
                             ),
                         );
                         let json_result = match result {
@@ -53,7 +53,14 @@ impl Rules {
                             &mut scope,
                             &ast,
                             "check_rule",
-                            (req.entity, req.operation, Map::new(), resource),
+                            (
+                                req.entity,
+                                req.operation,
+                                Rules::json_value_to_dynamic(
+                                    &serde_json::to_value(req.user).unwrap(),
+                                ),
+                                resource,
+                            ),
                         );
                         let _ = req.response_tx.send(Ok(result.unwrap_or(false)));
                     }

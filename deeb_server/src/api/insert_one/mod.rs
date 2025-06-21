@@ -9,16 +9,26 @@ use serde_json::Value;
 
 use super::Response;
 
-use crate::{api::DeebPath, app_data::AppData};
+use crate::{api::DeebPath, app_data::AppData, auth::auth_user::MaybeAuthUser};
 
 #[post("/insert-one/{entity_name}")]
 pub async fn insert_one(
     app_data: Data<AppData>,
-    document: Json<Value>,
+    mut document: Json<Value>,
     path: Path<DeebPath>,
+    user: MaybeAuthUser,
 ) -> impl Responder {
     let database = app_data.database.clone();
     let entity = Entity::new(&path.entity_name);
+
+    if let Some(user) = user.0 {
+        if let Some(doc_obj) = document.as_object_mut() {
+            doc_obj.insert(
+                "_created_by".to_string(),
+                Value::String(user._id.to_string()),
+            );
+        }
+    }
 
     // Create Instance
     match database

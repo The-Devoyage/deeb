@@ -30,6 +30,7 @@ pub struct CheckRuleRequest {
     pub entity: String,
     pub operation: String,
     pub resource: Value,
+    pub user: Option<AuthUser>,
     pub response_tx: mpsc::Sender<Result<bool, ScriptError>>,
 }
 
@@ -74,6 +75,7 @@ impl Rules {
         &self,
         operation: &AccessOperation,
         entity: &str,
+        user: Option<AuthUser>,
         values: Vec<Value>,
     ) -> Result<bool, ScriptError> {
         for doc in values {
@@ -83,6 +85,7 @@ impl Rules {
                 entity: entity.to_string(),
                 operation: operation.to_string(),
                 resource: doc.clone(),
+                user,
                 response_tx,
             };
 

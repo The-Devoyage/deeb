@@ -13,6 +13,7 @@ use super::{DeebPath, Response};
 use crate::{app_data::AppData, auth::auth_user::MaybeAuthUser, rules::AccessOperation};
 
 #[derive(Serialize, Deserialize, Clone, Default)]
+#[serde(deny_unknown_fields)]
 pub struct FindManyPayload {
     query: Option<Query>,
     find_many_options: Option<FindManyOptions>,
@@ -28,10 +29,10 @@ pub async fn find_many(
     let database = app_data.database.clone();
     let entity = Entity::new(&path.entity_name);
 
-    let query = match app_data.rules_worker.get_query(
+    let applied_query = match app_data.rules_worker.get_query(
         &AccessOperation::FindMany,
         &path.entity_name,
-        user.0,
+        user.0.clone(),
         serde_json::to_value(payload.clone()).ok(),
     ) {
         Ok(q) => q,
@@ -39,8 +40,6 @@ pub async fn find_many(
             return Response::new(StatusCode::INTERNAL_SERVER_ERROR).message(&err.to_string());
         }
     };
-
-    println!("ALL: {:?}", Query::all());
 
     // Create Instance
     match database
@@ -65,8 +64,9 @@ pub async fn find_many(
         None => Query::All,
     };
 
-    let query = if !query.is_null() {
-        let jsonquery = serde_json::from_value::<Query>(query);
+    // Combine user and applied queries
+    let query = if !applied_query.is_null() {
+        let jsonquery = serde_json::from_value::<Query>(applied_query);
         if jsonquery.is_err() {
             return Response::new(StatusCode::INTERNAL_SERVER_ERROR)
                 .message("Failed to get default query.");
@@ -94,11 +94,12 @@ pub async fn find_many(
             let allowed = app_data.rules_worker.check_rules(
                 &AccessOperation::FindMany,
                 &path.entity_name,
+                user.0,
                 values.clone(),
             );
             match allowed {
-                Ok(a) => {
-                    if a {
+                Ok(is_allowed) => {
+                    if is_allowed {
                         let array = serde_json::Value::Array(values);
                         return Response::new(StatusCode::OK)
                             .data(array)

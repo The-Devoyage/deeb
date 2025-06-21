@@ -9,28 +9,39 @@ pub fn create_rules(path: String) -> Result<(), std::io::Error> {
     std::fs::write(
         &path,
         r#"// Default rules.rhai
-// operations: "insert_one" | "insert_many" | "find_one" | "find_many" | "update_one" | "update_many" | "delete_one" | "delete_many" 
-// request: {
-//   user: {
-//     _id: String
-//   }
+// entity: The name of the given collection. Ex: "user" | "comment" | "profile_image"
+// operation: "insert_one" | "insert_many" | "find_one" | "find_many" | "update_one" | "update_many" | "delete_one" | "delete_many" 
+// user: {
+//     _id: Ulid, // (string)
+//     email: String
 // }
+// payload: `request.body` of the provided request
+// resource: The found document.
 
 // Dynamically modify a query from the client
 fn apply_query(entity, operation, user, payload) {
     if entity == "user" {
+        print("Apply default user query.")
+
+        // Require a logged in user.
         if user == () {
             throw "User does not exist.";
         }
 
-        return #{ "Eq": ["_id", request.user._id] }
+        // Only allow the user to find their own user object.
+        if ["find_one", "find_many"].contains(operation) {
+            return #{ "Eq": ["_id", request.user._id] }
+        }
+
+        // Don't accept other operations
+        throw "User opertaion not permitted."
     }
 
     // Return nothing to allow the user query without modification.
     return
 }
 
-fn check_rule(entity, operation, request, resource) {
+fn check_rule(entity, operation, user, resource) {
     if entity == "user" {
         return users_rules(operation, request, resource);
     }
