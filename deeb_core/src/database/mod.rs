@@ -325,7 +325,6 @@ impl Database {
         let instance = self
             .get_instance_by_entity(entity)
             .ok_or_else(|| Error::msg("Entity not found"))?;
-        println!("FINDING: {:?}", instance);
         let data = instance
             .data
             .get(&entity.name)
