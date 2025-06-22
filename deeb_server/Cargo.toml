@@ -20,3 +20,6 @@ chrono = "0.4.41"
 rhai = { version = "1.22.2", features = ["serde"] }
 thiserror = "2.0.12"
 ulid = "1.2.1"
+
+[dev-dependencies]
+actix-http = "3.5"

@@ -1,1 +1,1 @@
-{"_meta":[{"associations":[],"indexes":[],"name":"dog","primary_key":null},{"associations":[],"indexes":[],"name":"user","primary_key":null}]}
+{"_meta":[{"associations":[],"indexes":[],"name":"user","primary_key":null},{"associations":[],"indexes":[],"name":"dog","primary_key":null}]}

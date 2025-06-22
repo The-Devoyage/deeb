@@ -124,17 +124,19 @@ pub async fn find_many(
 
 #[cfg(test)]
 mod tests {
-    use crate::test_utils::setup_test_app;
+    use crate::test_utils::{register_and_login_user, setup_test_app};
     use actix_web::{http::header, test};
     use serde_json::json;
 
     #[actix_web::test]
     async fn test_find_many() {
         let app = test::init_service(setup_test_app(Some("test_find_many")).await).await;
+        let token = register_and_login_user(&app).await;
 
         let req = test::TestRequest::post()
             .uri("/insert-many/dog")
             .insert_header((header::CONTENT_TYPE, "application/json"))
+            .insert_header((header::AUTHORIZATION, format!("Bearer {}", token.0)))
             .set_payload(
                 serde_json::Value::Array(vec![
                     json!({"name": "Scooter"}),
@@ -149,6 +151,7 @@ mod tests {
         let req = test::TestRequest::post()
             .uri("/find-many/dog")
             .insert_header((header::CONTENT_TYPE, "application/json"))
+            .insert_header((header::AUTHORIZATION, format!("Bearer {}", token.0)))
             .set_payload(json!({}).to_string())
             .to_request();
 

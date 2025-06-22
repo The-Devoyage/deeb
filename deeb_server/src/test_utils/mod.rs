@@ -1,7 +1,7 @@
 use std::fs;
 use std::sync::Once;
-use std::thread::sleep;
 
+use actix_web::dev::{Service, ServiceResponse};
 use actix_web::{App, web::Data};
 
 use crate::api::{
@@ -9,6 +9,7 @@ use crate::api::{
     update_one,
 };
 use crate::app_data::AppData;
+use actix_http::Request;
 use actix_web::{http::header, test};
 use serde_json::Value;
 use serde_json::json;
@@ -28,11 +29,9 @@ pub async fn setup_test_app(
 > {
     INIT.call_once(|| {
         pretty_env_logger::init();
-        let _ = fs::remove_dir("./db");
-        sleep(std::time::Duration::from_secs(3));
+        let _ = fs::remove_dir_all("./db");
         let _ = fs::create_dir("./db");
         log::info!("🧹 Test DB deleted before tests");
-        sleep(std::time::Duration::from_secs(3));
     });
 
     let app_data = AppData::new(
@@ -56,13 +55,19 @@ pub async fn setup_test_app(
         .service(auth::login::login)
 }
 
-pub async fn register_and_login_user(email: &str, password: &str) -> (String, String) {
-    let app = test::init_service(setup_test_app(None).await).await;
+pub struct TestUserToken(pub String);
+
+pub async fn register_and_login_user<S>(app: &S) -> TestUserToken
+where
+    S: Service<Request, Response = ServiceResponse, Error = actix_web::Error> + 'static,
+    S::Future: 'static,
+{
+    // let app = test::init_service(setup_test_app(None).await).await;
 
     // 1. Register the user
     let register_payload = json!({
-        "email": email,
-        "password": password,
+        "email": "tester@thedevoyage.com",
+        "password": "abcdefg",
         "name": "Test User"
     });
 
@@ -72,12 +77,12 @@ pub async fn register_and_login_user(email: &str, password: &str) -> (String, St
         .set_payload(register_payload.to_string())
         .to_request();
 
-    let _ = test::call_service(&app, register_req).await;
+    let _ = test::call_service(app, register_req).await;
 
     // 2. Log in
     let login_payload = json!({
-        "email": email,
-        "password": password,
+        "email": "tester@thedevoyage.com",
+        "password": "abcdefg",
     });
 
     let login_req = test::TestRequest::post()
@@ -97,10 +102,5 @@ pub async fn register_and_login_user(email: &str, password: &str) -> (String, St
         .expect("Missing token")
         .to_string();
 
-    let user_id = json["data"]["_id"]
-        .as_str()
-        .expect("Missing user ID")
-        .to_string();
-
-    (token, user_id)
+    TestUserToken(token)
 }

@@ -9,16 +9,16 @@
 // Appends a default query to the operation
 fn apply_query(entity, operation, user, payload) {
     print(user);
-    // if entity == "dog" {
-    //     if user == () {
-    //         throw "User does not exist.";
-    //     }
-    //     if ["find_one", "find_many"].contains(operation) {
-    //         return #{ "Eq": [ "_created_by", user._id ] } 
-    //     } 
+    if entity == "dog" {
+        if user == () {
+            throw "User does not exist.";
+        }
+        if ["find_one", "find_many"].contains(operation) {
+            return #{ "Eq": [ "_created_by", user._id ] } 
+        } 
 
-    //     throw "Operation not permitted."
-    // }
+        throw "Operation not permitted."
+    }
 
     return
 }
