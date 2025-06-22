@@ -28,5 +28,9 @@ pub enum Command {
         /// Path to the rules file
         #[arg(long, default_value = "rules.rhai")]
         rules: Option<String>,
+
+        /// The name of the instance/json file to save data to.
+        #[arg(long, default_value = "rules.rhai")]
+        instance_name: Option<String>,
     },
 }

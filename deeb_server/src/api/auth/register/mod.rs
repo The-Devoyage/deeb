@@ -49,8 +49,8 @@ async fn register_user(
     match database
         .deeb
         .add_instance(
-            "instance_name",
-            "./first_instance.json",
+            format!("{}-{}", &"user", app_data.instance_name.as_str()).as_str(),
+            &format!("./db/{}.json", app_data.instance_name),
             vec![entity.clone()],
         )
         .await
@@ -117,4 +117,50 @@ async fn register_user(
     Response::new(StatusCode::OK)
         .message("Successfully Registered")
         .data(serde_json::to_value(user).unwrap())
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::test_utils::setup_test_app;
+    use actix_web::{
+        http::{StatusCode, header},
+        test,
+    };
+    use serde_json::json;
+
+    #[actix_web::test]
+    async fn test_register_duplicate_user() {
+        let app =
+            test::init_service(setup_test_app(Some("test_register_duplicate_user")).await).await;
+
+        let payload = json!({
+            "email": "dup@example.com",
+            "password": "somepass",
+            "name": "Duplicate"
+        });
+
+        // First registration (should succeed)
+        let req = test::TestRequest::post()
+            .uri("/auth/register")
+            .insert_header((header::CONTENT_TYPE, "application/json"))
+            .set_payload(payload.to_string())
+            .to_request();
+        let _ = test::call_service(&app, req).await;
+
+        // Second registration (should fail)
+        let req = test::TestRequest::post()
+            .uri("/auth/register")
+            .insert_header((header::CONTENT_TYPE, "application/json"))
+            .set_payload(payload.to_string())
+            .to_request();
+        let resp = test::call_service(&app, req).await;
+
+        assert_eq!(resp.status(), StatusCode::CONFLICT);
+
+        let body = test::read_body(resp).await;
+        let json_body: serde_json::Value =
+            serde_json::from_slice(&body).expect("Invalid JSON response");
+
+        assert_eq!(json_body["message"], "User already exists.");
+    }
 }

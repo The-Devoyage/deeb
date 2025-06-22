@@ -31,8 +31,8 @@ pub async fn update_many(
     match database
         .deeb
         .add_instance(
-            "instance_name",
-            "./first_instance.json",
+            format!("{}-{}", &path.entity_name, app_data.instance_name.as_str()).as_str(),
+            &format!("./db/{}.json", app_data.instance_name),
             vec![entity.clone()],
         )
         .await
@@ -69,22 +69,15 @@ pub async fn update_many(
 
 #[cfg(test)]
 mod tests {
-    use crate::api::insert_many;
-    use actix_web::{App, http::header, test};
+    use crate::test_utils::setup_test_app;
+    use actix_web::{http::header, test};
     use serde_json::json;
 
     use super::*;
 
     #[actix_web::test]
     async fn test_update_many() {
-        let app_data = AppData::new(None).unwrap();
-        let app = test::init_service(
-            App::new()
-                .app_data(Data::new(app_data))
-                .service(update_many)
-                .service(insert_many::insert_many),
-        )
-        .await;
+        let app = test::init_service(setup_test_app(Some("test_update_many")).await).await;
 
         let req = test::TestRequest::post()
             .uri("/insert-many/dog")
@@ -114,8 +107,6 @@ mod tests {
             .set_payload(json!({"query": json, "document": {"name": "Delbo"}}).to_string())
             .to_request();
         let resp = test::call_service(&app, req).await;
-
-        println!("{:?}", resp.response());
 
         assert!(resp.status().is_success());
     }

@@ -29,8 +29,8 @@ pub async fn delete_many(
     match database
         .deeb
         .add_instance(
-            "instance_name",
-            "./first_instance.json",
+            format!("{}-{}", &path.entity_name, app_data.instance_name.as_str()).as_str(),
+            &format!("./db/{}.json", app_data.instance_name),
             vec![entity.clone()],
         )
         .await
@@ -62,22 +62,14 @@ pub async fn delete_many(
 
 #[cfg(test)]
 mod tests {
-    use crate::api::insert_many::insert_many;
-    use actix_web::{App, http::header, test};
+    use actix_web::{http::header, test};
     use serde_json::json;
 
-    use super::*;
+    use crate::test_utils::setup_test_app;
 
     #[actix_web::test]
     async fn test_delete_many() {
-        let app_data = AppData::new(None).unwrap();
-        let app = test::init_service(
-            App::new()
-                .app_data(Data::new(app_data))
-                .service(delete_many)
-                .service(insert_many),
-        )
-        .await;
+        let app = test::init_service(setup_test_app(Some("test_delete_many")).await).await;
 
         let req = test::TestRequest::post()
             .uri("/insert-many/dog")
@@ -99,8 +91,6 @@ mod tests {
             .set_payload(json!({"query": {"Like": ["name", "zz"]}}).to_string())
             .to_request();
         let resp = test::call_service(&app, req).await;
-
-        println!("{:?}", resp.response());
 
         assert!(resp.status().is_success());
     }

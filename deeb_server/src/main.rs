@@ -16,6 +16,9 @@ pub mod database;
 pub mod environment;
 pub mod rules;
 
+#[cfg(test)]
+pub mod test_utils;
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     pretty_env_logger::init();
@@ -24,8 +27,13 @@ async fn main() -> std::io::Result<()> {
 
     match cli.command {
         Command::InitRules { path } => create_rules(path),
-        Command::Serve { host, port, rules } => {
-            let app_data = AppData::new(rules)?;
+        Command::Serve {
+            host,
+            port,
+            rules,
+            instance_name,
+        } => {
+            let app_data = AppData::new(rules, instance_name)?;
 
             log::info!("Deeb Server Starting...");
 

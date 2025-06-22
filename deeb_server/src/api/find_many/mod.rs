@@ -45,8 +45,8 @@ pub async fn find_many(
     match database
         .deeb
         .add_instance(
-            "instance_name",
-            "./first_instance.json",
+            format!("{}-{}", &path.entity_name, app_data.instance_name.as_str()).as_str(),
+            &format!("./db/{}.json", app_data.instance_name),
             vec![entity.clone()],
         )
         .await
@@ -124,22 +124,13 @@ pub async fn find_many(
 
 #[cfg(test)]
 mod tests {
-    use crate::api::insert_one::insert_one;
-    use actix_web::{App, http::header, test};
+    use crate::test_utils::setup_test_app;
+    use actix_web::{http::header, test};
     use serde_json::json;
-
-    use super::*;
 
     #[actix_web::test]
     async fn test_find_many() {
-        let app_data = AppData::new(Some("./rules.rhai".to_string())).unwrap();
-        let app = test::init_service(
-            App::new()
-                .app_data(Data::new(app_data))
-                .service(find_many)
-                .service(insert_one),
-        )
-        .await;
+        let app = test::init_service(setup_test_app(Some("test_find_many")).await).await;
 
         let req = test::TestRequest::post()
             .uri("/insert-many/dog")
@@ -158,10 +149,10 @@ mod tests {
         let req = test::TestRequest::post()
             .uri("/find-many/dog")
             .insert_header((header::CONTENT_TYPE, "application/json"))
+            .set_payload(json!({}).to_string())
             .to_request();
-        let resp = test::call_service(&app, req).await;
 
-        println!("{:?}", resp.response());
+        let resp = test::call_service(&app, req).await;
 
         assert!(resp.status().is_success());
     }
