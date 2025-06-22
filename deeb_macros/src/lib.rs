@@ -66,8 +66,7 @@ impl Parse for DeebArgs {
                 "associate" => {
                     match input.parse::<CollectionAssociation>() {
                         Ok(a) => associations.push(a),
-                        Err(err) => {
-                            println!("ERROR: {:?}", err);
+                        Err(_err) => {
                             return Err(syn::Error::new_spanned(
                                 ident,
                                 "Faield to parse association",

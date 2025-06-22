@@ -239,7 +239,6 @@ impl Deeb {
             transaction.add_operation(operation);
             return Ok(None);
         }
-        println!("Finding one: {:?}", entity);
 
         let db = self.db.read().await;
         let value = db.find_one(entity, query).ok();

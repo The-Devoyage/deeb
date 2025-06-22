@@ -526,7 +526,6 @@ impl Query {
                     if value.is_array() {
                         let value = value.as_array().unwrap();
                         for v in value {
-                            println!("V: {:?}", v);
                             if v.is_object() {
                                 let v = v.as_object().unwrap();
                                 for (k, v) in v.iter() {
