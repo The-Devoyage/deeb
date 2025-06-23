@@ -8,7 +8,7 @@
 
 // Appends a default query to the operation
 fn apply_query(entity, operation, user, payload) {
-    print(user);
+    print("APPLY QUERY");
     if entity == "dog" {
         if user == () {
             throw "User does not exist.";
@@ -24,8 +24,12 @@ fn apply_query(entity, operation, user, payload) {
 }
 
 fn check_rule(entity, operation, request, resource) {
+    print("CHECKING RULE");
+    print(entity == "dog");
     if entity == "dog" {
-        return true;
+        print("RESOURCE");
+        print(resource);
+        return true
     }
 
     if entity == "user" {
@@ -33,5 +37,5 @@ fn check_rule(entity, operation, request, resource) {
     }
 
     // default: deny
-    return false;
+    return false
 }

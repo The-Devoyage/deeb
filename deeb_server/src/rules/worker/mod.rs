@@ -62,7 +62,9 @@ impl Rules {
                                 resource,
                             ),
                         );
-                        let _ = req.response_tx.send(Ok(result.unwrap_or(false)));
+                        let _ = req.response_tx.send(result.map_err(|e| {
+                            ScriptError::CheckRuleError(e.to_string())
+                        }));
                     }
                 }
             }

@@ -636,6 +636,7 @@ dependencies = [
 name = "deeb_server"
 version = "0.1.0"
 dependencies = [
+ "actix-http",
  "actix-web",
  "argon2",
  "chrono",

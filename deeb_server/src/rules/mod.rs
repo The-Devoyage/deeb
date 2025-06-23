@@ -16,6 +16,12 @@ pub enum ScriptError {
 
     #[error("Worker failed to receive an appropriate response: {0}")]
     WorkerReceiveError(String),
+
+    #[error("{0}")]
+    CheckRuleError(String),
+
+    #[error("Failed to send the task to the worker: {0}")]
+    WorkerSendError(String),
 }
 
 pub struct ApplyQueryRequest {
@@ -85,7 +91,7 @@ impl Rules {
                 entity: entity.to_string(),
                 operation: operation.to_string(),
                 resource: doc.clone(),
-                user,
+                user: user.clone(),
                 response_tx,
             };
 
@@ -93,14 +99,18 @@ impl Rules {
 
             if let Err(e) = self.sender.send(task) {
                 log::error!("Failed to send CheckRule task to Rhai worker: {:?}", e);
-                return Ok(false);
+                return Err(ScriptError::WorkerSendError(e.to_string()));
             }
 
             match response_rx.recv() {
-                Ok(allowed) => return allowed,
+                Ok(allowed) => {
+                    if !allowed.unwrap_or(false) {
+                        return Err(ScriptError::CheckRuleError("Rule check failed.".to_string()))
+                    }
+                }
                 Err(e) => {
                     log::error!("Failed to receive Rhai result: {:?}", e);
-                    return Ok(false);
+                    return Err(ScriptError::WorkerReceiveError(e.to_string()));
                 }
             };
         }

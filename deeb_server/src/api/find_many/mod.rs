@@ -105,16 +105,21 @@ pub async fn find_many(
                             .data(array)
                             .message("Documents Found.");
                     } else {
-                        Response::new(StatusCode::INTERNAL_SERVER_ERROR).message("Access Denied")
+                        log::error!("Access denied. Rule has prevented access to this resource.");
+                        Response::new(StatusCode::INTERNAL_SERVER_ERROR)
+                            .message("Access denied. Rule has prevented access to this resource.")
                     }
                 }
                 Err(e) => {
                     log::error!("Access denied: {:?}", e);
-                    Response::new(StatusCode::INTERNAL_SERVER_ERROR).message("Access Denied")
+                    Response::new(StatusCode::INTERNAL_SERVER_ERROR).message("Access denied. Error while processing rules.")
                 }
             }
         }
-        Ok(None) => Response::new(StatusCode::OK).message("No documents found."),
+        Ok(None) => {
+            log::warn!("NO DOCS FOUND");
+            Response::new(StatusCode::OK).message("No documents found.")
+        }
         Err(err) => {
             log::error!("{:?}", err);
             Response::new(StatusCode::INTERNAL_SERVER_ERROR).message(&err.to_string())
@@ -124,9 +129,11 @@ pub async fn find_many(
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use crate::test_utils::{register_and_login_user, setup_test_app};
     use actix_web::{http::header, test};
-    use serde_json::json;
+    use serde_json::{Value, json};
 
     #[actix_web::test]
     async fn test_find_many() {
@@ -158,5 +165,25 @@ mod tests {
         let resp = test::call_service(&app, req).await;
 
         assert!(resp.status().is_success());
+
+        let body_bytes = test::read_body(resp).await;
+        let result: Value =
+            serde_json::from_slice(&body_bytes).expect("Response body should be valid JSON");
+
+        let items = result
+            .get("data")
+            .and_then(|v| v.as_array())
+            .expect("Expected 'data' field to be an array");
+
+        assert_eq!(items.len(), 3, "Expected exactly 3 dog documents");
+
+        let received_names: HashSet<&str> = items
+            .iter()
+            .map(|doc| doc.get("name").unwrap().as_str().unwrap())
+            .collect();
+
+        let expected_names: HashSet<&str> = ["Scooter", "Mango", "Banjo"].into_iter().collect();
+
+        assert_eq!(received_names, expected_names, "Mismatch in dog names");
     }
 }

@@ -8,7 +8,7 @@ pub fn create_rules(path: String) -> Result<(), std::io::Error> {
     }
     std::fs::write(
         &path,
-        r#"// Default rules.rhai
+        r#"// Rules Quick Start 
 // entity: The name of the given collection. Ex: "user" | "comment" | "profile_image"
 // operation: "insert_one" | "insert_many" | "find_one" | "find_many" | "update_one" | "update_many" | "delete_one" | "delete_many" 
 // user: {
