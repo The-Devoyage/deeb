@@ -1,1 +1,0 @@
-{"_meta":[{"associations":[{"alias":"user_comment","entity_name":"comment","from":"id","to":"user_id"}],"indexes":[],"name":"user","primary_key":"id"},{"associations":[],"indexes":[],"name":"comment","primary_key":"id"}]}
