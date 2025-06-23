@@ -3,4 +3,4 @@
 /deeb_macros/target
 deeb_server/db
 *.env
-*.json
+**/*.json
