@@ -29,18 +29,6 @@ pub async fn find_many(
     let database = app_data.database.clone();
     let entity = Entity::new(&path.entity_name);
 
-    let applied_query = match app_data.rules_worker.get_query(
-        &AccessOperation::FindMany,
-        &path.entity_name,
-        user.0.clone(),
-        serde_json::to_value(payload.clone()).ok(),
-    ) {
-        Ok(q) => q,
-        Err(err) => {
-            return Response::new(StatusCode::INTERNAL_SERVER_ERROR).message(&err.to_string());
-        }
-    };
-
     // Create Instance
     match database
         .deeb
@@ -56,6 +44,18 @@ pub async fn find_many(
             log::error!("{:?}", err);
             return Response::new(StatusCode::INTERNAL_SERVER_ERROR)
                 .message("Failed to get instance.");
+        }
+    };
+
+    let applied_query = match app_data.rules_worker.get_query(
+        &AccessOperation::FindMany,
+        &path.entity_name,
+        user.0.clone(),
+        serde_json::to_value(payload.clone()).ok(),
+    ) {
+        Ok(q) => q,
+        Err(err) => {
+            return Response::new(StatusCode::INTERNAL_SERVER_ERROR).message(&err.to_string());
         }
     };
 
@@ -112,7 +112,8 @@ pub async fn find_many(
                 }
                 Err(e) => {
                     log::error!("Access denied: {:?}", e);
-                    Response::new(StatusCode::INTERNAL_SERVER_ERROR).message("Access denied. Error while processing rules.")
+                    Response::new(StatusCode::INTERNAL_SERVER_ERROR)
+                        .message("Access denied. Error while processing rules.")
                 }
             }
         }

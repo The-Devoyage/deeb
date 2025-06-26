@@ -32,6 +32,10 @@ fn check_rule(entity, operation, request, resource) {
         return true
     }
 
+    if entity == "command" {
+        return true
+    }
+
     // default: deny
     return false
 }
