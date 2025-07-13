@@ -93,7 +93,7 @@ async fn register_user(
     };
 
     // Save user
-    let user = match database
+    match database
         .deeb
         .insert_one(
             &entity,
@@ -106,7 +106,7 @@ async fn register_user(
         )
         .await
     {
-        Ok(user) => user,
+        Ok(_) => {},
         Err(err) => {
             log::error!("{:?}", err);
             return Response::new(StatusCode::INTERNAL_SERVER_ERROR)
@@ -114,9 +114,7 @@ async fn register_user(
         }
     };
 
-    Response::new(StatusCode::OK)
-        .message("Successfully Registered")
-        .data(serde_json::to_value(user).unwrap())
+    Response::new(StatusCode::OK).message("Successfully Registered")
 }
 
 #[cfg(test)]

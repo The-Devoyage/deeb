@@ -59,21 +59,21 @@ pub async fn find_many(
         }
     };
 
-    let user_query = match payload.clone().unwrap_or_default().query.clone() {
+    let client_query = match payload.clone().unwrap_or_default().query.clone() {
         Some(q) => q,
         None => Query::All,
     };
 
-    // Combine user and applied queries
+    // Combine client and applied queries
     let query = if !applied_query.is_null() {
         let jsonquery = serde_json::from_value::<Query>(applied_query);
         if jsonquery.is_err() {
             return Response::new(StatusCode::INTERNAL_SERVER_ERROR)
                 .message("Failed to get default query.");
         }
-        Query::and(vec![user_query, jsonquery.unwrap()])
+        Query::and(vec![client_query, jsonquery.unwrap()])
     } else {
-        user_query
+        client_query
     };
 
     match database

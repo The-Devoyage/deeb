@@ -12,18 +12,24 @@ fn apply_query(entity, operation, user, payload) {
         if user == () {
             throw "User does not exist.";
         }
-        if ["find_one", "find_many"].contains(operation) {
+        if ["find_one", "find_many", "delete_many", "delete_one", "update_one", "update_many"].contains(operation) {
             return #{ "Eq": [ "_created_by", user._id ] } 
         } 
 
         throw "Operation not permitted."
     }
 
+    // if entity == "command" {
+    //     if user == () {
+    //         throw "User does not exist.";
+    //     }
+    //     return 
+    // }
+
     return
 }
 
 fn check_rule(entity, operation, request, resource) {
-    print(entity == "dog");
     if entity == "dog" {
         return true
     }

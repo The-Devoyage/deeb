@@ -22,7 +22,7 @@ pub async fn insert_many(
     let entity = Entity::new(&path.entity_name);
 
     // If user is authenticated, add _created_by to each document
-    if let Some(user) = user.0 {
+    if let Some(user) = user.0.clone() {
         for doc in document.iter_mut() {
             if let Some(obj) = doc.as_object_mut() {
                 obj.insert(
@@ -51,6 +51,22 @@ pub async fn insert_many(
         }
     };
 
+    let allowed = app_data.rules_worker.check_rules(
+        &crate::rules::AccessOperation::InsertMany,
+        &path.entity_name,
+        user.0,
+        vec![],
+    );
+
+    if allowed.is_err() {
+        return Response::new(StatusCode::INTERNAL_SERVER_ERROR)
+            .message("Failed to check insert many rules.");
+    }
+
+    if !allowed.unwrap() {
+        return Response::new(StatusCode::FORBIDDEN).message("Insert many access denied.");
+    }
+
     // Insert Payload
     match database
         .deeb
@@ -75,15 +91,17 @@ mod tests {
     use actix_web::{http::header, test};
     use serde_json::json;
 
-    use crate::test_utils::setup_test_app;
+    use crate::test_utils::{register_and_login_user, setup_test_app};
 
     #[actix_web::test]
     async fn test_insert_many() {
         let app = test::init_service(setup_test_app(Some("test_insert_many")).await).await;
+        let token = register_and_login_user(&app).await;
 
         let req = test::TestRequest::post()
             .uri("/insert-many/dog")
             .insert_header((header::CONTENT_TYPE, "application/json"))
+            .insert_header((header::AUTHORIZATION, format!("Bearer {}", token.0)))
             .set_payload(
                 serde_json::Value::Array(vec![
                     json!({"name": "bozo"}),
