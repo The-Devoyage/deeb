@@ -9,6 +9,7 @@ use query::Query;
 use std::collections::HashMap;
 use std::fs::{self, OpenOptions};
 use std::io::{Read, Write};
+use std::path::PathBuf;
 use ulid::Ulid;
 
 use serde_json::{Map, Value, json};
@@ -105,18 +106,19 @@ pub struct Database {
 
 impl Database {
     pub fn new() -> Self {
-        let meta = Entity::new("_meta");
-        let meta_instance = DatabaseInstance {
-            file_path: "_meta.json".to_string(),
-            entities: vec![meta],
-            data: HashMap::new(),
-        };
-        let mut instances = HashMap::new();
-        instances.insert(InstanceName::from("_meta"), meta_instance);
-        let mut database = Database { instances };
-        database
-            .load_instance(&InstanceName::from("_meta"))
-            .unwrap();
+        //TODO: Remote meta
+        // let meta = Entity::new("_meta");
+        // let meta_instance = DatabaseInstance {
+        //     file_path: "_meta.json".to_string(),
+        //     entities: vec![meta],
+        //     data: HashMap::new(),
+        // };
+        let instances = HashMap::new();
+        // instances.insert(InstanceName::from("_meta"), meta_instance);
+        let database = Database { instances };
+        // database
+        //     .load_instance(&InstanceName::from("_meta"))
+        //     .unwrap();
         database
     }
 
@@ -125,7 +127,7 @@ impl Database {
         name: &InstanceName,
         file_path: &str,
         entities: Vec<Entity>,
-    ) -> &mut Self {
+    ) -> Result<&mut Self, Error> {
         let instance = DatabaseInstance {
             file_path: file_path.to_string(),
             entities: entities.clone(),
@@ -134,46 +136,46 @@ impl Database {
         self.instances.insert(name.clone(), instance);
 
         // Persist entity settings
-        for entity in entities.iter() {
-            let meta_instance = self
-                .instances
-                .get_mut(&InstanceName::from("_meta"))
-                .unwrap();
-            let data = meta_instance
-                .data
-                .entry(EntityName::from("_meta"))
-                .or_insert(Vec::new());
-            let entity = json!({
-                "name": entity.name.to_string(),
-                "primary_key": entity.primary_key.clone(),
-                "associations": entity.associations.iter().map(|association| {
-                    json!({
-                        "from": association.from,
-                        "to": association.to,
-                        "entity_name": association.entity_name,
-                        "alias": association.alias
-                    })
-                }).collect::<Vec<Value>>(),
-                "indexes": entity.indexes.iter().map(|index| {
-                    json!({
-                        "name": index.name,
-                        "columns": index.columns,
-                    })
-                }).collect::<Vec<Value>>(),
-            });
+        // for entity in entities.iter() {
+        //     let meta_instance = self
+        //         .instances
+        //         .get_mut(&InstanceName::from("_meta"))
+        //         .unwrap();
+        //     let data = meta_instance
+        //         .data
+        //         .entry(EntityName::from("_meta"))
+        //         .or_insert(Vec::new());
+        //     let entity = json!({
+        //         "name": entity.name.to_string(),
+        //         "primary_key": entity.primary_key.clone(),
+        //         "associations": entity.associations.iter().map(|association| {
+        //             json!({
+        //                 "from": association.from,
+        //                 "to": association.to,
+        //                 "entity_name": association.entity_name,
+        //                 "alias": association.alias
+        //             })
+        //         }).collect::<Vec<Value>>(),
+        //         "indexes": entity.indexes.iter().map(|index| {
+        //             json!({
+        //                 "name": index.name,
+        //                 "columns": index.columns,
+        //             })
+        //         }).collect::<Vec<Value>>(),
+        //     });
             // Replace the entity if it already exists
-            let index = data.iter().position(|value| {
-                value.get("name").unwrap().as_str().unwrap().to_string()
-                    == entity.get("name").unwrap().as_str().unwrap().to_string()
-            });
-            if let Some(index) = index {
-                data.remove(index);
-            }
-            data.push(entity);
-        }
+            // let index = data.iter().position(|value| {
+            //     value.get("name").unwrap().as_str().unwrap().to_string()
+            //         == entity.get("name").unwrap().as_str().unwrap().to_string()
+            // });
+            // if let Some(index) = index {
+            //     data.remove(index);
+            // }
+            // data.push(entity);
+        // }
 
-        self.commit(vec![InstanceName::from("_meta")]).unwrap();
-        self
+        // self.commit(vec![InstanceName::from("_meta")])?;
+        Ok(self)
     }
 
     pub fn load_instance(&mut self, name: &InstanceName) -> Result<&mut Self, Error> {
@@ -537,22 +539,55 @@ impl Database {
         Ok(values)
     }
 
-    pub fn commit(&self, name: Vec<InstanceName>) -> Result<(), Error> {
-        for name in name {
+    pub fn commit(&self, names: Vec<InstanceName>) -> Result<(), Error> {
+        for name in names {
             let instance = self
                 .instances
                 .get(&name)
                 .ok_or_else(|| Error::msg("Instance not found"))?;
-            let mut file = OpenOptions::new()
-                .read(true)
+
+            // Convert the string path to PathBuf for manipulation
+            let original_path = PathBuf::from(&instance.file_path);
+            let mut tmp_path = original_path.clone();
+
+            // Create a shadow file path like "campgrounds.json.tmp"
+            tmp_path.set_extension("json.tmp");
+
+            // Serialize the data
+            let serialized = serde_json::to_vec(&instance.data)?;
+
+            // Write to shadow file
+            let mut tmp_file = OpenOptions::new()
                 .write(true)
-                .open(&instance.file_path)?;
-            file.lock_exclusive()?;
-            file.set_len(0)?;
-            file.write_all(serde_json::to_string(&instance.data)?.as_bytes())?;
-            file.sync_all()?;
-            fs2::FileExt::unlock(&file)?
+                .create(true)
+                .truncate(true)
+                .open(&tmp_path)
+                .map_err(|e| {
+                    error!("Failed to open temp path: {tmp_path:?}");
+                    e
+                })?;
+
+            println!("ORIGINAL_PATH: {original_path:?}");
+
+            println!("FOUND TEMP: {tmp_file:?}");
+
+            tmp_file.lock_exclusive()?;
+            tmp_file.write_all(&serialized)?;
+            tmp_file.sync_all()?;
+            fs2::FileExt::unlock(&tmp_file)?;
+            drop(tmp_file);
+
+            println!("DROPPED");
+
+            // Atomically replace the original file with the shadow file
+            std::fs::rename(&tmp_path, &original_path)?;
+
+            println!("RENAMED");
         }
+
+
+        println!("DONE");
+
         Ok(())
     }
 

@@ -23,7 +23,7 @@ impl AppData {
         let loaded_rules = load_rules(rules_path);
         let rules_worker = Rules::new(loaded_rules);
         let environment = Environment::new()
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("env load error: {}", e)))?;
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Failed to load .env, please ensure your `.env` file is populated and placed in the same directory.: {}", e)))?;
         let database = Database::new();
         let instance_name = instance_name.unwrap_or(ulid::Ulid::new().to_string());
 

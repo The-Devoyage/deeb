@@ -60,9 +60,9 @@ impl Deeb {
     ///   # let user = Entity::new("user");
     ///   # let comment = Entity::new("comment");
     ///   # let db = Deeb::new();
-    ///   db.add_instance("test", "./user.json", vec![user.clone()])
+    ///   db.add_instance("test", "./db/lib_user_add_instance.json", vec![user.clone()])
     ///   .await?;
-    ///   db.add_instance("test2", "./comment.json", vec![comment.clone()])
+    ///   db.add_instance("test2", "./db/lib_comment_add_instance.json", vec![comment.clone()])
     ///   .await?;
     ///   # Ok(())
     ///   # }
@@ -80,7 +80,7 @@ impl Deeb {
     {
         debug!("Adding instance");
         let mut db = self.db.write().await;
-        db.add_instance(&name.into(), file_path, entities);
+        db.add_instance(&name.into(), file_path, entities)?;
         db.load_instance(&name.into())?;
         Ok(self)
     }
@@ -98,7 +98,7 @@ impl Deeb {
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
-    /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
+    /// # db.add_instance("test", "./db/lib_user_insert_one.json", vec![user.clone()]).await?;
     /// # #[derive(Serialize, Deserialize)]
     /// # struct User {
     /// #   id: i32,
@@ -151,7 +151,7 @@ impl Deeb {
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
-    /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
+    /// # db.add_instance("test", "./db/lib_user_insert_many.json", vec![user.clone()]).await?;
     /// # #[derive(Serialize, Deserialize)]
     /// # struct User {
     /// #   id: i32,
@@ -208,7 +208,7 @@ impl Deeb {
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
-    /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
+    /// # db.add_instance("test", "./db/lib_user_find_one.json", vec![user.clone()]).await?;
     /// # #[derive(Serialize, Deserialize)]
     /// # struct User {
     /// #   id: i32,
@@ -262,7 +262,7 @@ impl Deeb {
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
-    /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
+    /// # db.add_instance("test", "./db/lib_user_find_many.json", vec![user.clone()]).await?;
     /// # #[derive(Serialize, Deserialize)]
     /// # struct User {
     /// #   id: i32,
@@ -332,7 +332,7 @@ impl Deeb {
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
-    /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
+    /// # db.add_instance("test", "./db/lib_user_delete_one.json", vec![user.clone()]).await?;
     /// # #[derive(Serialize, Deserialize)]
     /// # struct User {
     /// #   id: i32,
@@ -381,7 +381,7 @@ impl Deeb {
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
-    /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
+    /// # db.add_instance("test", "./db/lib_user_delete_many.json", vec![user.clone()]).await?;
     /// db.delete_many(&user, Query::eq("age", 10), None).await?;
     /// # Ok(())
     /// # }
@@ -424,7 +424,7 @@ impl Deeb {
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
-    /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
+    /// # db.add_instance("test", "./db/lib_user_update_one.json", vec![user.clone()]).await?;
     /// # #[derive(Serialize, Deserialize)]
     /// # struct User {
     /// #   id: i32,
@@ -488,7 +488,7 @@ impl Deeb {
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
-    /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
+    /// # db.add_instance("test", "./db/lib_user_update_many.json", vec![user.clone()]).await?;
     /// # #[derive(Serialize, Deserialize)]
     /// # struct User {
     /// #   id: i32,
@@ -570,7 +570,7 @@ impl Deeb {
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
-    /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
+    /// # db.add_instance("test", "./db/lib_user_commit.json", vec![user.clone()]).await?;
     /// let mut transaction = db.begin_transaction().await;
     /// # #[derive(Serialize, Deserialize)]
     /// # struct User {
@@ -739,7 +739,7 @@ impl Deeb {
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
-    /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
+    /// # db.add_instance("test", "./db/lib_user_drop_key.json", vec![user.clone()]).await?;
     /// # #[derive(Serialize, Deserialize)]
     /// # struct User {
     /// #   id: i32,
@@ -785,7 +785,7 @@ impl Deeb {
     /// # async fn main() -> Result<(), Error> {
     /// # let user = Entity::new("user");
     /// # let db = Deeb::new();
-    /// # db.add_instance("test", "./user.json", vec![user.clone()]).await?;
+    /// # db.add_instance("test", "./db/lib_user_add_key.json", vec![user.clone()]).await?;
     /// db.add_key(&user, "age", 10).await?;
     /// # Ok(())
     /// # }
@@ -818,9 +818,9 @@ impl Deeb {
         Ok(())
     }
 
-    /// Construct the Meta entity
-    pub fn get_meta(&self) -> Result<Entity, Error> {
-        let meta_entity = Entity::new("_meta");
-        Ok(meta_entity)
-    }
+    // Construct the Meta entity
+    // pub fn get_meta(&self) -> Result<Entity, Error> {
+    //     let meta_entity = Entity::new("_meta");
+    //     Ok(meta_entity)
+    // }
 }

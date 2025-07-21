@@ -595,6 +595,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "deeb-server"
+version = "0.0.1"
+dependencies = [
+ "actix-http",
+ "actix-web",
+ "argon2",
+ "chrono",
+ "clap",
+ "deeb",
+ "dotenvy",
+ "futures-util",
+ "jsonwebtoken",
+ "log",
+ "pretty_env_logger",
+ "rand 0.8.5",
+ "rhai",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "ulid",
+]
+
+[[package]]
 name = "deeb_core"
 version = "0.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -630,29 +653,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "deeb_server"
-version = "0.1.0"
-dependencies = [
- "actix-http",
- "actix-web",
- "argon2",
- "chrono",
- "clap",
- "deeb",
- "dotenvy",
- "futures-util",
- "jsonwebtoken",
- "log",
- "pretty_env_logger",
- "rand 0.8.5",
- "rhai",
- "serde",
- "serde_json",
- "thiserror",
- "ulid",
 ]
 
 [[package]]

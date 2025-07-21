@@ -13,6 +13,10 @@
 - Changed insert function name to insert_one.
 - Reogranized to rust Work Spaces.
 
+### Removed
+
+- Removed meta files.
+
 ## v0.0.11
 
 - Add Count, Skip, Limit, and Order functionatlity.

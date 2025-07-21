@@ -21,7 +21,7 @@ pub fn create_rules(path: String) -> Result<(), std::io::Error> {
 // Dynamically modify a query from the client
 fn apply_query(entity, operation, user, payload) {
     if entity == "user" {
-        print("Apply default user query.")
+        print("Apply default user query.");
 
         // Require a logged in user.
         if user == () {

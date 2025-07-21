@@ -68,9 +68,9 @@
 //!
 //!     // Set up a new Deeb instance
 //!    let db = Deeb::new();
-//!    db.add_instance("test", "./user.json", vec![user.clone()])
+//!    db.add_instance("test", "./db/test_user.json", vec![user.clone()])
 //!     .await?;
-//!    db.add_instance("test2", "./comment.json", vec![comment.clone()])
+//!    db.add_instance("test2", "./db/test_comment.json", vec![comment.clone()])
 //!     .await?;
 //!
 //!    // Single Operations

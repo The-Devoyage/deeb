@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use actix_web::{App, HttpServer, web::Data};
 use api::{
     auth as auth_api, delete_many, delete_one, find_many, find_one, insert_many, insert_one,
@@ -6,6 +8,7 @@ use api::{
 use app_data::AppData;
 use clap::Parser;
 use cli::{Cli, Command};
+use log::LevelFilter;
 use rules::create_rules::create_rules;
 
 mod api;
@@ -21,7 +24,14 @@ pub mod test_utils;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    pretty_env_logger::init();
+    let log_level = std::env::var("RUST_LOG");
+
+    pretty_env_logger::formatted_builder()
+        .filter_level(
+            LevelFilter::from_str(log_level.unwrap_or("INFO".to_string()).as_str())
+                .unwrap_or(LevelFilter::Info),
+        )
+        .init();
 
     let cli = Cli::parse();
 
