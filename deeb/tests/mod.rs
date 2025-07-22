@@ -69,7 +69,7 @@ async fn spawn_deeb(instance_name: &str) -> Result<(Deeb, Entity, Entity, Entity
     db.delete_many(&comment, Query::All, None).await?;
 
     // Populate initial data
-    db.insert_one::<User>(
+    db.insert_one::<User, User>(
         &user,
         User {
             id: 1,
@@ -79,7 +79,7 @@ async fn spawn_deeb(instance_name: &str) -> Result<(Deeb, Entity, Entity, Entity
         None,
     )
     .await?;
-    db.insert_one::<User>(
+    db.insert_one::<User, User>(
         &user,
         User {
             id: 2,
@@ -89,7 +89,7 @@ async fn spawn_deeb(instance_name: &str) -> Result<(Deeb, Entity, Entity, Entity
         None,
     )
     .await?;
-    db.insert_one::<User>(
+    db.insert_one::<User, User>(
         &user,
         User {
             id: 3,
@@ -100,7 +100,7 @@ async fn spawn_deeb(instance_name: &str) -> Result<(Deeb, Entity, Entity, Entity
     )
     .await?;
 
-    db.insert_one::<Comment>(
+    db.insert_one::<Comment, Comment>(
         &comment,
         Comment {
             user_id: 1,
@@ -109,7 +109,7 @@ async fn spawn_deeb(instance_name: &str) -> Result<(Deeb, Entity, Entity, Entity
         None,
     )
     .await?;
-    db.insert_one::<Comment>(
+    db.insert_one::<Comment, Comment>(
         &comment,
         Comment {
             user_id: 1,
@@ -118,7 +118,7 @@ async fn spawn_deeb(instance_name: &str) -> Result<(Deeb, Entity, Entity, Entity
         None,
     )
     .await?;
-    db.insert_one::<Comment>(
+    db.insert_one::<Comment, Comment>(
         &comment,
         Comment {
             user_id: 2,
@@ -127,7 +127,7 @@ async fn spawn_deeb(instance_name: &str) -> Result<(Deeb, Entity, Entity, Entity
         None,
     )
     .await?;
-    db.insert_one::<Comment>(
+    db.insert_one::<Comment, Comment>(
         &comment,
         Comment {
             user_id: 3,
@@ -148,7 +148,7 @@ async fn insert_one() -> Result<(), Error> {
         name: "nick".to_string(),
         age: 35.0,
     };
-    let result = db.insert_one::<User>(&user, value, None).await?;
+    let result = db.insert_one::<User, User>(&user, value, None).await?;
     assert_eq!(
         result,
         serde_json::from_value::<User>(json!({"name": "nick", "age": 35, "id": 12345}))?
@@ -187,7 +187,7 @@ async fn insert_many() -> Result<(), Error> {
             id: 923489,
         },
     ];
-    let result = db.insert_many::<User>(&user, values, None).await?;
+    let result = db.insert_many::<User, User>(&user, values, None).await?;
     let expected = vec![
         User {
             name: "jack".to_string(),
@@ -452,7 +452,7 @@ async fn delete_many_macro() -> Result<(), Error> {
 async fn transaction() -> Result<(), Error> {
     let (db, user, _comment, ..) = spawn_deeb("transcation").await?;
     let mut transaction = db.begin_transaction().await;
-    db.insert_one::<User>(
+    db.insert_one::<User, User>(
         &user,
         User {
             name: "Al".to_string(),
@@ -462,7 +462,7 @@ async fn transaction() -> Result<(), Error> {
         Some(&mut transaction),
     )
     .await?;
-    db.insert_one::<User>(
+    db.insert_one::<User, User>(
         &user,
         User {
             name: "Peg".to_string(),
@@ -472,7 +472,7 @@ async fn transaction() -> Result<(), Error> {
         Some(&mut transaction),
     )
     .await?;
-    db.insert_one::<User>(
+    db.insert_one::<User, User>(
         &user,
         User {
             name: "Bud".to_string(),
@@ -928,7 +928,7 @@ async fn drop_key() -> Result<(), Error> {
 async fn drop_key_nested() -> Result<(), Error> {
     let (db, user, _comment, ..) = spawn_deeb("drop_key_nested").await?;
     db.delete_many(&user, Query::All, None).await?;
-    db.insert_one::<UserAddress>(
+    db.insert_one::<UserAddress, UserAddress>(
         &user,
         UserAddress {
             name: "oliver".to_string(),
@@ -944,7 +944,7 @@ async fn drop_key_nested() -> Result<(), Error> {
         None,
     )
     .await?;
-    db.insert_one::<UserAddress>(
+    db.insert_one::<UserAddress, UserAddress>(
         &user,
         UserAddress {
             name: "olivia".to_string(),
@@ -1012,7 +1012,7 @@ struct UserAddressBefore {
 async fn add_key_nested() -> Result<(), Error> {
     let (db, _user, _comment, user_address) = spawn_deeb("add_key_nested").await?;
     db.delete_many(&user_address, Query::All, None).await?;
-    db.insert_one::<UserAddress>(
+    db.insert_one::<UserAddress, UserAddress>(
         &user_address,
         UserAddress {
             name: "oliver".to_string(),
@@ -1025,7 +1025,7 @@ async fn add_key_nested() -> Result<(), Error> {
         None,
     )
     .await?;
-    db.insert_one::<UserAddress>(
+    db.insert_one::<UserAddress, UserAddress>(
         &user_address,
         UserAddress {
             name: "oliver".to_string(),
@@ -1039,7 +1039,7 @@ async fn add_key_nested() -> Result<(), Error> {
     )
     .await?;
 
-    db.insert_one::<UserAddressBefore>(
+    db.insert_one::<UserAddressBefore, UserAddressBefore>(
         &user_address,
         UserAddressBefore {
             name: "olivia".to_string(),

@@ -105,19 +105,20 @@ impl Deeb {
     /// #   name: String,
     /// #   age: i32
     /// # }
-    /// db.insert_one::<User>(&user, User {id: 1, name: "Joey".to_string(), age: 10}, None).await?;
+    /// db.insert_one::<User, User>(&user, User {id: 1, name: "Joey".to_string(), age: 10}, None).await?;
     /// # Ok(())
     /// # }
     /// ```
     #[allow(dead_code)]
-    pub async fn insert_one<T>(
+    pub async fn insert_one<T, K>(
         &self,
         entity: &Entity,
         value: T,
         transaction: Option<&mut Transaction>,
-    ) -> Result<T, Error>
+    ) -> Result<K, Error>
     where
-        T: DeserializeOwned + Serialize,
+        T: Serialize,
+        K: DeserializeOwned 
     {
         debug!("Inserting");
         let value = serde_json::to_value(value)?;
@@ -134,7 +135,7 @@ impl Deeb {
         let value = db.insert_one(entity, value)?;
         let name = db.get_instance_name_by_entity(entity)?;
         db.commit(vec![name])?;
-        let typed: Result<T, _> = serde_json::from_value(value);
+        let typed: Result<K, _> = serde_json::from_value(value);
         Ok(typed?)
     }
 
@@ -158,19 +159,20 @@ impl Deeb {
     /// #   name: String,
     /// #   age: i32
     /// # }
-    /// db.insert_many::<User>(&user, vec![User {id: 1, name: "Joey".to_string(), age: 10}, User {id: 2, name: "Steve".to_string(), age: 3}], None).await?;
+    /// db.insert_many::<User, User>(&user, vec![User {id: 1, name: "Joey".to_string(), age: 10}, User {id: 2, name: "Steve".to_string(), age: 3}], None).await?;
     /// # Ok(())
     /// # }
     /// ```
     #[allow(dead_code)]
-    pub async fn insert_many<T>(
+    pub async fn insert_many<T, K>(
         &self,
         entity: &Entity,
         values: Vec<T>,
         transaction: Option<&mut Transaction>,
-    ) -> Result<Vec<T>, Error>
+    ) -> Result<Vec<K>, Error>
     where
-        T: Serialize + DeserializeOwned,
+        T: Serialize,
+        K: DeserializeOwned,
     {
         debug!("Inserting many");
         let values: Vec<Value> = values
@@ -183,7 +185,7 @@ impl Deeb {
                 values: values.clone(),
             };
             transaction.add_operation(operation);
-            let typed: Result<Vec<T>, _> = values.into_iter().map(serde_json::from_value).collect();
+            let typed: Result<Vec<K>, _> = values.into_iter().map(serde_json::from_value).collect();
             return Ok(typed?);
         }
 
@@ -191,7 +193,7 @@ impl Deeb {
         let values = db.insert_many(entity, values)?;
         let name = db.get_instance_name_by_entity(entity)?;
         db.commit(vec![name])?;
-        let typed: Result<Vec<T>, _> = values.into_iter().map(serde_json::from_value).collect();
+        let typed: Result<Vec<K>, _> = values.into_iter().map(serde_json::from_value).collect();
         Ok(typed?)
     }
 
@@ -215,7 +217,7 @@ impl Deeb {
     /// #   name: String,
     /// #   age: i32
     /// # }
-    /// # db.insert_one::<User>(&user, User {id: 1, name: "Joey D".to_string(), age: 10}, None).await?;
+    /// # db.insert_one::<User, User>(&user, User {id: 1, name: "Joey D".to_string(), age: 10}, None).await?;
     /// db.find_one::<User>(&user, Query::eq("name", "Joey D"), None).await?;
     /// # Ok(())
     /// # }
@@ -269,7 +271,7 @@ impl Deeb {
     /// #   name: String,
     /// #   age: i32
     /// # }
-    /// # db.insert_one::<User>(&user, User {id: 1, name: "Joey".to_string(), age: 10}, None).await?;
+    /// # db.insert_one::<User, User>(&user, User {id: 1, name: "Joey".to_string(), age: 10}, None).await?;
     /// db
     /// .find_many::<User>(
     ///     &user,
@@ -339,7 +341,7 @@ impl Deeb {
     /// #   name: String,
     /// #   age: i32
     /// # }
-    /// # db.insert_one::<User>(&user, User {id: 1, name: "Joey".to_string(), age: 10}, None).await?;
+    /// # db.insert_one::<User, User>(&user, User {id: 1, name: "Joey".to_string(), age: 10}, None).await?;
     /// db.delete_one(&user, Query::eq("name", "Joey"), None).await?;
     /// # Ok(())
     /// # }
@@ -436,7 +438,7 @@ impl Deeb {
     /// #   age: Option<i32>,
     /// #   name: Option<String>
     /// # }
-    /// # db.insert_one::<User>(&user, User {id: 1, name: "Joey".to_string(), age: 10}, None).await?;
+    /// # db.insert_one::<User, User>(&user, User {id: 1, name: "Joey".to_string(), age: 10}, None).await?;
     /// db.update_one::<User, UpdateUser>(&user, Query::eq("age", 10), UpdateUser{age: Some(3), name: None}, None).await?;
     /// # Ok(())
     /// # }
@@ -500,7 +502,7 @@ impl Deeb {
     /// #   age: Option<i32>,
     /// #   name: Option<String>
     /// # }
-    /// # db.insert_many::<User>(&user, vec![User {id: 1938, name: "Tula".to_string(), age: 7}, User {id: 13849, name: "Bulla".to_string(), age: 7}], None).await?;
+    /// # db.insert_many::<User, User>(&user, vec![User {id: 1938, name: "Tula".to_string(), age: 7}, User {id: 13849, name: "Bulla".to_string(), age: 7}], None).await?;
     /// db.update_many::<User, UpdateUser>(&user, Query::eq("age", 7), UpdateUser {age: Some(8), name: None}, None).await?;
     /// # Ok(())
     /// # }
@@ -578,8 +580,8 @@ impl Deeb {
     /// #   name: String,
     /// #   age: i32
     /// # }
-    /// db.insert_one::<User>(&user, User {id: 1, name: "Steve".to_string(), age: 3}, Some(&mut transaction)).await?;
-    /// db.insert_one::<User>(&user, User {id: 2, name: "Johnny".to_string(), age: 3}, Some(&mut transaction)).await?;
+    /// db.insert_one::<User, User>(&user, User {id: 1, name: "Steve".to_string(), age: 3}, Some(&mut transaction)).await?;
+    /// db.insert_one::<User, User>(&user, User {id: 2, name: "Johnny".to_string(), age: 3}, Some(&mut transaction)).await?;
     /// db.commit(&mut transaction).await?;
     /// # Ok(())
     /// # }
@@ -746,7 +748,7 @@ impl Deeb {
     /// #   name: String,
     /// #   age: i32
     /// # }
-    /// # db.insert_one::<User>(&user, User {id: 1, name: "Joey".to_string(), age: 10}, None).await?;
+    /// # db.insert_one::<User, User>(&user, User {id: 1, name: "Joey".to_string(), age: 10}, None).await?;
     /// db.drop_key(&user, "age").await?;
     /// # Ok(())
     /// # }

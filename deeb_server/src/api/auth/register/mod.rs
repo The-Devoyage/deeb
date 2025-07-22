@@ -95,7 +95,7 @@ async fn register_user(
     // Save user
     match database
         .deeb
-        .insert_one(
+        .insert_one::<CreateUser, serde_json::Value>(
             &entity,
             CreateUser {
                 email: req.email,

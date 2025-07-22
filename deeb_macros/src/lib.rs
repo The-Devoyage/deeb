@@ -155,12 +155,12 @@ pub fn derive_deeb(input: TokenStream) -> TokenStream {
                 Ok(db.find_many::<#name>(&Self::entity(), query, find_many_options, transaction).await?)
             }
 
-            pub async fn insert_one(db: &Deeb, value: Self, transaction: Option<&mut Transaction>) -> DbResult<Self> {
-                Ok(db.insert_one::<#name>(&Self::entity(), value, transaction).await?)
+            pub async fn insert_one<InsertModel: serde::Serialize>(db: &Deeb, value: InsertModel, transaction: Option<&mut Transaction>) -> DbResult<Self> {
+                Ok(db.insert_one::<InsertModel, #name>(&Self::entity(), value, transaction).await?)
             }
 
-            pub async fn insert_many(db: &Deeb, value: Vec<Self>, transaction: Option<&mut Transaction>) -> DbResult<Vec<Self>> {
-                Ok(db.insert_many::<#name>(&Self::entity(), value, transaction).await?)
+            pub async fn insert_many<InsertModel: serde::Serialize>(db: &Deeb, value: Vec<InsertModel>, transaction: Option<&mut Transaction>) -> DbResult<Vec<Self>> {
+                Ok(db.insert_many::<InsertModel, #name>(&Self::entity(), value, transaction).await?)
             }
 
             pub async fn delete_one(db: &Deeb, query: Query, transaction: Option<&mut Transaction>) -> DbResult<Option<bool>> {
@@ -171,11 +171,11 @@ pub fn derive_deeb(input: TokenStream) -> TokenStream {
                 Ok(db.delete_many(&Self::entity(), query, transaction).await?)
             }
 
-            pub async fn update_one<U: serde::Serialize>(db: &Deeb, query: Query, update: U, transaction: Option<&mut Transaction>) -> DbResult<Option<Self>> {
+            pub async fn update_one<UpdateModel: serde::Serialize>(db: &Deeb, query: Query, update: UpdateModel, transaction: Option<&mut Transaction>) -> DbResult<Option<Self>> {
                 Ok(db.update_one(&Self::entity(), query, update, transaction).await?)
             }
 
-            pub async fn update_many<U: serde::Serialize>(db: &Deeb, query: Query, update: U, transaction: Option<&mut Transaction>) -> DbResult<Option<Vec<Self>>> {
+            pub async fn update_many<UpdateModel: serde::Serialize>(db: &Deeb, query: Query, update: UpdateModel, transaction: Option<&mut Transaction>) -> DbResult<Option<Vec<Self>>> {
                 Ok(db.update_many(&Self::entity(), query, update, transaction).await?)
             }
         }
