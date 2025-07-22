@@ -14,7 +14,7 @@ use ulid::Ulid;
 
 use serde_json::{Map, Value, json};
 
-use crate::entity::{Entity, EntityName};
+use crate::entity::Entity;
 
 pub mod database_instance;
 pub mod find_many_options;
@@ -106,19 +106,8 @@ pub struct Database {
 
 impl Database {
     pub fn new() -> Self {
-        //TODO: Remote meta
-        // let meta = Entity::new("_meta");
-        // let meta_instance = DatabaseInstance {
-        //     file_path: "_meta.json".to_string(),
-        //     entities: vec![meta],
-        //     data: HashMap::new(),
-        // };
         let instances = HashMap::new();
-        // instances.insert(InstanceName::from("_meta"), meta_instance);
         let database = Database { instances };
-        // database
-        //     .load_instance(&InstanceName::from("_meta"))
-        //     .unwrap();
         database
     }
 
@@ -134,47 +123,6 @@ impl Database {
             data: HashMap::new(),
         };
         self.instances.insert(name.clone(), instance);
-
-        // Persist entity settings
-        // for entity in entities.iter() {
-        //     let meta_instance = self
-        //         .instances
-        //         .get_mut(&InstanceName::from("_meta"))
-        //         .unwrap();
-        //     let data = meta_instance
-        //         .data
-        //         .entry(EntityName::from("_meta"))
-        //         .or_insert(Vec::new());
-        //     let entity = json!({
-        //         "name": entity.name.to_string(),
-        //         "primary_key": entity.primary_key.clone(),
-        //         "associations": entity.associations.iter().map(|association| {
-        //             json!({
-        //                 "from": association.from,
-        //                 "to": association.to,
-        //                 "entity_name": association.entity_name,
-        //                 "alias": association.alias
-        //             })
-        //         }).collect::<Vec<Value>>(),
-        //         "indexes": entity.indexes.iter().map(|index| {
-        //             json!({
-        //                 "name": index.name,
-        //                 "columns": index.columns,
-        //             })
-        //         }).collect::<Vec<Value>>(),
-        //     });
-            // Replace the entity if it already exists
-            // let index = data.iter().position(|value| {
-            //     value.get("name").unwrap().as_str().unwrap().to_string()
-            //         == entity.get("name").unwrap().as_str().unwrap().to_string()
-            // });
-            // if let Some(index) = index {
-            //     data.remove(index);
-            // }
-            // data.push(entity);
-        // }
-
-        // self.commit(vec![InstanceName::from("_meta")])?;
         Ok(self)
     }
 
@@ -584,7 +532,6 @@ impl Database {
 
             println!("RENAMED");
         }
-
 
         println!("DONE");
 

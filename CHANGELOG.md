@@ -11,11 +11,12 @@
 ### Changed
 
 - Changed insert function name to insert_one.
-- Reogranized to rust Work Spaces.
+- Reogranized to Rust Work Spaces.
+- Commit function now saves to a shadowfile to improve ACID's Isolation and Durability standards.
 
 ### Removed
 
-- Removed meta files.
+- Removed meta file persistence.
 
 ## v0.0.11
 

@@ -60,12 +60,10 @@ async fn spawn_deeb(instance_name: &str) -> Result<(Deeb, Entity, Entity, Entity
     // Add instances
     db.add_instance(
         instance_name,
-        &format!("./db/test_{}.json()", instance_name),
+        &format!("./db/test_{}.json", instance_name),
         vec![user.clone(), comment.clone(), user_address.clone()],
     )
     .await?;
-
-    println!("ADDED");
 
     db.delete_many(&user, Query::All, None).await?;
     db.delete_many(&comment, Query::All, None).await?;
@@ -1063,31 +1061,6 @@ async fn add_key_nested() -> Result<(), Error> {
     assert_eq!(result.address.meta.unwrap().zip, 12222);
     Ok(())
 }
-
-// #[tokio::test]
-// async fn load_meta() -> Result<(), Error> {
-//     let (db, ..) = spawn_deeb("load_meta").await?;
-//     let _meta = db.get_meta()?;
-//     let meta = db
-//         .find_many::<Entity>(&_meta, Query::All, None, None)
-//         .await?
-//         .ok_or_else(|| Error::msg("Expected type but found none."))?;
-
-//     assert_eq!(meta.len(), 3);
-//     assert_eq!(meta[0].name, "user".into());
-//     assert_eq!(meta[1].name, "comment".into());
-//     assert_eq!(meta[2].name, "user_address".into());
-//     // primary key
-//     assert_eq!(meta[0].primary_key, Some("id".to_string()));
-//     assert_eq!(meta[1].primary_key, Some("id".to_string()));
-//     // associations
-//     assert_eq!(meta[0].associations[0].from, "id");
-//     assert_eq!(meta[0].associations[0].to, "user_id");
-//     assert_eq!(meta[1].associations[0].from, "user_id");
-//     assert_eq!(meta[1].associations[0].to, "id");
-
-//     Ok(())
-// }
 
 #[derive(Serialize, Deserialize, Debug)]
 #[allow(dead_code)]
