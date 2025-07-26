@@ -9,6 +9,10 @@ that turns a set of JSON files into a light weight database.
 Deeb's ability to turn groups JSON files into a database allows you to simply
 open a json file and edit as needed.
 
+The new Deeb Docs site is available now at www.deebkit.com << Check it out
+
+-- or --
+
 Check out the quick start below, or the [docs](https://docs.rs/deeb/latest/deeb/)
 to learn more.
 
