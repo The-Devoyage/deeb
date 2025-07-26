@@ -74,14 +74,14 @@ async fn main() -> Result<(), Error> {
     .await?;
 
    // Single Operations
-   User::insert(&db, User {id: 1, name: "George".to_string(), age: 10}, None).await?;
+   User::insert_one(&db, User {id: 1, name: "George".to_string(), age: 10}, None).await?;
    User::find_one(&db, Query::eq("name", "George"), None).await?;
 
    // Perform a transaction
    let mut transaction = db.begin_transaction().await;
 
-   User::insert(&db, User {id: 1, name: "Steve".to_string(), age: 3}, Some(&mut transaction)).await?;
-   User::insert(&db, User {id: 2, name: "Johnny".to_string(), age: 3}, Some(&mut transaction)).await?;
+   User::insert_one(&db, User {id: 1, name: "Steve".to_string(), age: 3}, Some(&mut transaction)).await?;
+   User::insert_one(&db, User {id: 2, name: "Johnny".to_string(), age: 3}, Some(&mut transaction)).await?;
    Comment::insert_many(
           &db,
           vec![

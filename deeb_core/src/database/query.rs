@@ -1,8 +1,9 @@
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::entity::Entity;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct Key(String);
 
 impl std::fmt::Display for Key {
@@ -17,7 +18,7 @@ impl From<&str> for Key {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub enum Query {
     Eq(Key, Value),
     Ne(Key, Value),
@@ -36,7 +37,7 @@ impl Query {
     /// Create a new query that matches documents based on exact match.
     ///
     /// ```
-    /// use deeb::*;
+    /// use deeb_core::database::query::Query;
     ///
     /// let query = Query::eq("name", "John");
     /// ```
@@ -52,7 +53,7 @@ impl Query {
     /// Create a new query that matches documents based on not equal match.
     ///
     /// ```
-    /// use deeb::*;
+    /// use deeb_core::database::query::Query;
     /// let query = Query::ne("name", "John");
     /// ```
     #[allow(dead_code)]
@@ -67,7 +68,7 @@ impl Query {
     /// Create a new query that matches documents based on multiple conditions.
     ///
     /// ```
-    /// use deeb::*;
+    /// use deeb_core::database::query::Query;
     ///
     /// let query = Query::and(vec![
     ///    Query::eq("name", "John"),
@@ -83,7 +84,7 @@ impl Query {
     /// Create a new query that matches documents based on multiple conditions.
     ///
     /// ```
-    /// use deeb::*;
+    /// use deeb_core::database::query::Query;
     ///
     /// let query = Query::or(vec![
     ///   Query::eq("name", "John"),
@@ -99,7 +100,7 @@ impl Query {
     /// Create a new query that matches documents based on like match.
     ///
     /// ```
-    /// use deeb::*;
+    /// use deeb_core::database::query::Query;
     /// let query = Query::like("name", "John");
     /// ```
     #[allow(dead_code)]
@@ -114,7 +115,7 @@ impl Query {
     /// Create a new query that matches documents based on less than match.
     ///
     /// ```
-    /// use deeb::*;
+    /// use deeb_core::database::query::Query;
     /// let query = Query::lt("age", 30);
     /// ```
     #[allow(dead_code)]
@@ -129,7 +130,7 @@ impl Query {
     /// Create a new query that matches documents based on less than or equal match.
     ///
     /// ```
-    /// use deeb::*;
+    /// use deeb_core::database::query::Query;
     /// let query = Query::lte("age", 30);
     /// ```
     #[allow(dead_code)]
@@ -144,7 +145,7 @@ impl Query {
     /// Create a new query that matches documents based on greater than match.
     ///
     /// ```
-    /// use deeb::*;
+    /// use deeb_core::database::query::Query;
     /// let query = Query::gt("age", 30);
     /// ```
     #[allow(dead_code)]
@@ -159,7 +160,7 @@ impl Query {
     /// Create a new query that matches documents based on greater than or equal match.
     ///
     /// ```
-    /// use deeb::*;
+    /// use deeb_core::database::query::Query;
     /// let query = Query::gte("age", 30);
     /// ```
     #[allow(dead_code)]
@@ -173,7 +174,7 @@ impl Query {
 
     /// Create a new query that matches all documents.
     /// ```
-    /// use deeb::*;
+    /// use deeb_core::database::query::Query;
     /// let query = Query::all();
     /// ```
     #[allow(dead_code)]
@@ -183,7 +184,8 @@ impl Query {
 
     /// Create a new query that matches documents based on associated entity.
     /// ```
-    /// use deeb::*;
+    /// use deeb_core::database::query::Query;
+    /// use deeb_core::entity::Entity;
     /// let user = Entity::new("user");
     /// let comment = Entity::new("comment");
     /// let query = Query::associated(comment, Query::eq("user_id", 1));
@@ -243,7 +245,7 @@ impl Query {
     /// Check if the query matches the value.
     ///
     /// ```
-    /// use deeb::*;
+    /// use deeb_core::database::query::Query;
     /// use serde_json::json;
     /// let query = Query::eq("name", "John");
     /// let value = json!({"name": "John"});
@@ -472,7 +474,7 @@ impl Query {
                                         let query_value = query_value.as_f64();
                                         match query_value {
                                             Some(query_value) => {
-                                                return Ok(value > query_value && k == &key.0)
+                                                return Ok(value > query_value && k == &key.0);
                                             }
                                             None => return Ok(false),
                                         };
@@ -524,7 +526,6 @@ impl Query {
                     if value.is_array() {
                         let value = value.as_array().unwrap();
                         for v in value {
-                            println!("V: {:?}", v);
                             if v.is_object() {
                                 let v = v.as_object().unwrap();
                                 for (k, v) in v.iter() {
@@ -532,7 +533,7 @@ impl Query {
                                         let query_value = query_value.as_f64();
                                         match query_value {
                                             Some(query_value) => {
-                                                return Ok(value >= query_value && k == &key.0)
+                                                return Ok(value >= query_value && k == &key.0);
                                             }
                                             None => return Ok(false),
                                         };

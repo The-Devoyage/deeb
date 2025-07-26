@@ -1,4 +1,5 @@
 use anyhow::Error;
+use chrono::{DateTime, Utc};
 use database_instance::DatabaseInstance;
 use find_many_options::{FindManyOptions, FindManyOrder, OrderDirection};
 use fs2::FileExt;
@@ -8,10 +9,12 @@ use query::Query;
 use std::collections::HashMap;
 use std::fs::{self, OpenOptions};
 use std::io::{Read, Write};
+use std::path::PathBuf;
+use ulid::Ulid;
 
 use serde_json::{Map, Value, json};
 
-use crate::entity::{Entity, EntityName};
+use crate::entity::Entity;
 
 pub mod database_instance;
 pub mod find_many_options;
@@ -103,18 +106,8 @@ pub struct Database {
 
 impl Database {
     pub fn new() -> Self {
-        let meta = Entity::new("_meta");
-        let meta_instance = DatabaseInstance {
-            file_path: "_meta.json".to_string(),
-            entities: vec![meta],
-            data: HashMap::new(),
-        };
-        let mut instances = HashMap::new();
-        instances.insert(InstanceName::from("_meta"), meta_instance);
-        let mut database = Database { instances };
-        database
-            .load_instance(&InstanceName::from("_meta"))
-            .unwrap();
+        let instances = HashMap::new();
+        let database = Database { instances };
         database
     }
 
@@ -123,55 +116,14 @@ impl Database {
         name: &InstanceName,
         file_path: &str,
         entities: Vec<Entity>,
-    ) -> &mut Self {
+    ) -> Result<&mut Self, Error> {
         let instance = DatabaseInstance {
             file_path: file_path.to_string(),
             entities: entities.clone(),
             data: HashMap::new(),
         };
         self.instances.insert(name.clone(), instance);
-
-        // Persist entity settings
-        for entity in entities.iter() {
-            let meta_instance = self
-                .instances
-                .get_mut(&InstanceName::from("_meta"))
-                .unwrap();
-            let data = meta_instance
-                .data
-                .entry(EntityName::from("_meta"))
-                .or_insert(Vec::new());
-            let entity = json!({
-                "name": entity.name.to_string(),
-                "primary_key": entity.primary_key.clone(),
-                "associations": entity.associations.iter().map(|association| {
-                    json!({
-                        "from": association.from,
-                        "to": association.to,
-                        "entity_name": association.entity_name,
-                        "alias": association.alias
-                    })
-                }).collect::<Vec<Value>>(),
-                "indexes": entity.indexes.iter().map(|index| {
-                    json!({
-                        "name": index.name,
-                        "columns": index.columns,
-                    })
-                }).collect::<Vec<Value>>(),
-            });
-            // Replace the entity if it already exists
-            let index = data.iter().position(|value| {
-                value.get("name").unwrap().as_str().unwrap().to_string()
-                    == entity.get("name").unwrap().as_str().unwrap().to_string()
-            });
-            if let Some(index) = index {
-                data.remove(index);
-            }
-            data.push(entity);
-        }
-
-        self.commit(vec![InstanceName::from("_meta")]).unwrap();
-        self
+        Ok(self)
     }
 
     pub fn load_instance(&mut self, name: &InstanceName) -> Result<&mut Self, Error> {
@@ -233,12 +185,34 @@ impl Database {
     }
 
     // Operations
-    pub fn insert(&mut self, entity: &Entity, insert_value: Value) -> DbResult<Value> {
+    pub fn insert_one(&mut self, entity: &Entity, mut insert_value: Value) -> DbResult<Value> {
         // Check insert_value, it needs to be a JSON object.
         // It can not have field or `_id`.
         if !insert_value.is_object() {
             return Err(Error::msg("Value must be a JSON object"));
         }
+
+        // Insert _id if it's not present
+        let mut _id = None;
+        if insert_value.get("_id").is_none() {
+            _id = Some(Ulid::new());
+            if let Some(obj) = insert_value.as_object_mut() {
+                obj.insert("_id".to_string(), json!(_id.unwrap().to_string()));
+            }
+        }
+
+        if insert_value.get("_created_at").is_none() {
+            let server_time = if let Some(id) = _id {
+                DateTime::<Utc>::from(id.datetime())
+            } else {
+                Utc::now()
+            };
+
+            if let Some(obj) = insert_value.as_object_mut() {
+                obj.insert("_created_at".to_string(), json!(server_time.to_rfc3339()));
+            }
+        }
+
         let instance = self
             .get_instance_by_entity_mut(entity)
             .ok_or_else(|| Error::msg("Entity not found"))?;
@@ -254,11 +228,31 @@ impl Database {
     pub fn insert_many(
         &mut self,
         entity: &Entity,
-        insert_values: Vec<Value>,
+        mut insert_values: Vec<Value>,
     ) -> DbResult<Vec<Value>> {
-        for insert_value in insert_values.iter() {
+        for insert_value in insert_values.iter_mut() {
             if !insert_value.is_object() {
                 return Err(Error::msg("Value must be a JSON object"));
+            }
+            // Insert _id if it's not present
+            let mut _id = None;
+            if insert_value.get("_id").is_none() {
+                _id = Some(Ulid::new());
+                if let Some(obj) = insert_value.as_object_mut() {
+                    obj.insert("_id".to_string(), json!(_id.unwrap().to_string()));
+                }
+            }
+
+            if insert_value.get("_created_at").is_none() {
+                let server_time = if let Some(id) = _id {
+                    DateTime::<Utc>::from(id.datetime())
+                } else {
+                    Utc::now()
+                };
+
+                if let Some(obj) = insert_value.as_object_mut() {
+                    obj.insert("_created_at".to_string(), json!(server_time.to_rfc3339()));
+                }
             }
         }
         let instance = self
@@ -281,7 +275,6 @@ impl Database {
         let instance = self
             .get_instance_by_entity(entity)
             .ok_or_else(|| Error::msg("Entity not found"))?;
-        println!("FINDING: {:?}", instance);
         let data = instance
             .data
             .get(&entity.name)
@@ -494,22 +487,54 @@ impl Database {
         Ok(values)
     }
 
-    pub fn commit(&self, name: Vec<InstanceName>) -> Result<(), Error> {
-        for name in name {
+    pub fn commit(&self, names: Vec<InstanceName>) -> Result<(), Error> {
+        for name in names {
             let instance = self
                 .instances
                 .get(&name)
                 .ok_or_else(|| Error::msg("Instance not found"))?;
-            let mut file = OpenOptions::new()
-                .read(true)
+
+            // Convert the string path to PathBuf for manipulation
+            let original_path = PathBuf::from(&instance.file_path);
+            let mut tmp_path = original_path.clone();
+
+            // Create a shadow file path like "campgrounds.json.tmp"
+            tmp_path.set_extension("json.tmp");
+
+            // Serialize the data
+            let serialized = serde_json::to_vec(&instance.data)?;
+
+            // Write to shadow file
+            let mut tmp_file = OpenOptions::new()
                 .write(true)
-                .open(&instance.file_path)?;
-            file.lock_exclusive()?;
-            file.set_len(0)?;
-            file.write_all(serde_json::to_string(&instance.data)?.as_bytes())?;
-            file.sync_all()?;
-            fs2::FileExt::unlock(&file)?
+                .create(true)
+                .truncate(true)
+                .open(&tmp_path)
+                .map_err(|e| {
+                    error!("Failed to open temp path: {tmp_path:?}");
+                    e
+                })?;
+
+            println!("ORIGINAL_PATH: {original_path:?}");
+
+            println!("FOUND TEMP: {tmp_file:?}");
+
+            tmp_file.lock_exclusive()?;
+            tmp_file.write_all(&serialized)?;
+            tmp_file.sync_all()?;
+            fs2::FileExt::unlock(&tmp_file)?;
+            drop(tmp_file);
+
+            println!("DROPPED");
+
+            // Atomically replace the original file with the shadow file
+            std::fs::rename(&tmp_path, &original_path)?;
+
+            println!("RENAMED");
         }
+
+        println!("DONE");
+
         Ok(())
     }
 

@@ -1,5 +1,7 @@
 /target
 /deeb_core/target
 /deeb_macros/target
-*.json
-
+deeb_server/db
+deeb/db
+*.env
+**/*.json

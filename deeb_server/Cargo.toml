@@ -1,0 +1,25 @@
+[package]
+name = "deeb-server"
+version = "0.0.1"
+edition = "2024"
+
+[dependencies]
+actix-web = "4.11.0"
+clap = { version = "4.5.40", features = ["derive"] }
+deeb = { version = "0.0.11", path = "../deeb" }
+log = "0.4.27"
+pretty_env_logger = "0.5.0"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+jsonwebtoken = "9"
+dotenvy = "0.15.7"
+futures-util = "0.3.31"
+argon2 = "0.5"
+rand = "0.8"
+chrono = "0.4.41"
+rhai = { version = "1.22.2", features = ["serde"] }
+thiserror = "2.0.12"
+ulid = "1.2.1"
+
+[dev-dependencies]
+actix-http = "3.5"

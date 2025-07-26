@@ -45,7 +45,7 @@ impl Entity {
     /// Create a new entity.
     /// # Example
     /// ```rust
-    /// use deeb::*;
+    /// use deeb_core::entity::Entity;
     /// let user = Entity::new("user");
     /// ```
     pub fn new(s: &str) -> Self {

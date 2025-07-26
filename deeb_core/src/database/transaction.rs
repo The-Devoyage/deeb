@@ -1,16 +1,16 @@
-use uuid::Uuid;
+use ulid::Ulid;
 
 use super::Operation;
 
 pub struct Transaction {
-    pub id: Uuid,
+    pub id: Ulid,
     pub operations: Vec<Operation>,
 }
 
 impl Transaction {
     pub fn new() -> Self {
         Self {
-            id: Uuid::new_v4(),
+            id: Ulid::new(),
             operations: Vec::new(),
         }
     }
