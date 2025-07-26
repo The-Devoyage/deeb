@@ -6,8 +6,8 @@
 
 - Automatically insert `_id` on creation if not passed. Uses Ulid under the hood for time based ordering.
 - Automatically insert `_created_at` on creation if not passed a value at insert.
-- Created Deeb Server, a CLI app to run a server with endpoints for every deeb operation.
-- Custom insert types.
+- Created Deeb Server, a CLI app to run a server with endpoints for every deeb operation. Code Release Only - Not Published.
+- Custom insert types - When inserting, you can now provide custom types that may be different than your read types.
 
 ### Changed
 

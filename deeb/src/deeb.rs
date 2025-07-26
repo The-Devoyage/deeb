@@ -88,6 +88,7 @@ impl Deeb {
     /// Insert a single value into the database.
     /// Passing a transaction will queue the operation to be executed later and
     /// requires you to commit the transaction.
+    /// Automatically inserts _id: Ulid, _create_at: iso 8601 string
     ///
     /// ```
     /// # use deeb::*;
