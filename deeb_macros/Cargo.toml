@@ -15,5 +15,5 @@ proc-macro = true
 syn = "2"
 quote = "1"
 proc-macro2 = "1"
-deeb_core = "0.0.2"
+deeb_core = {version = "0.0.5", path = "../deeb_core" }
 anyhow = "1.0.86"
