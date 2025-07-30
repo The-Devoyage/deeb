@@ -1,3 +1,4 @@
+use crate::database::index::{Index, IndexOptions};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Serialize, Deserialize)]
@@ -25,12 +26,6 @@ pub struct EntityAssociation {
     pub to: String,
     /// Uses the entity name as the alias if not provided.
     pub alias: EntityName,
-}
-
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Serialize, Deserialize)]
-pub struct Index {
-    pub name: String,
-    pub columns: Vec<String>,
 }
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Serialize, Deserialize)]
@@ -62,10 +57,16 @@ impl Entity {
         self.clone()
     }
 
-    pub fn add_index(&mut self, name: &str, columns: Vec<&str>) -> &mut Self {
+    pub fn add_index(
+        &mut self,
+        name: &str,
+        columns: Vec<&str>,
+        options: Option<IndexOptions>,
+    ) -> &mut Self {
         self.indexes.push(Index {
             name: name.to_string(),
             columns: columns.iter().map(|c| c.to_string()).collect(),
+            options,
         });
         self
     }

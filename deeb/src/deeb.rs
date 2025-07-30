@@ -80,8 +80,11 @@ impl Deeb {
     {
         debug!("Adding instance");
         let mut db = self.db.write().await;
-        db.add_instance(&name.into(), file_path, entities)?;
+        db.add_instance(&name.into(), file_path, entities.clone())?;
         db.load_instance(&name.into())?;
+        for entity in entities {
+            db.build_index(&entity)?;
+        }
         Ok(self)
     }
 
@@ -119,7 +122,7 @@ impl Deeb {
     ) -> Result<K, Error>
     where
         T: Serialize,
-        K: DeserializeOwned 
+        K: DeserializeOwned,
     {
         debug!("Inserting");
         let value = serde_json::to_value(value)?;

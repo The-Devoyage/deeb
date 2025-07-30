@@ -21,6 +21,7 @@ pub mod find_many_options;
 pub mod instance_name;
 pub mod query;
 pub mod transaction;
+pub mod index;
 
 pub type DbResult<T> = Result<T, anyhow::Error>;
 
@@ -515,25 +516,15 @@ impl Database {
                     e
                 })?;
 
-            println!("ORIGINAL_PATH: {original_path:?}");
-
-            println!("FOUND TEMP: {tmp_file:?}");
-
             tmp_file.lock_exclusive()?;
             tmp_file.write_all(&serialized)?;
             tmp_file.sync_all()?;
             fs2::FileExt::unlock(&tmp_file)?;
             drop(tmp_file);
 
-            println!("DROPPED");
-
             // Atomically replace the original file with the shadow file
             std::fs::rename(&tmp_path, &original_path)?;
-
-            println!("RENAMED");
         }
-
-        println!("DONE");
 
         Ok(())
     }

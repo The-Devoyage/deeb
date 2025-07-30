@@ -5,6 +5,14 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 #[derive(Collection, Serialize, Deserialize, PartialEq, Debug)]
+#[deeb(name = "product", primary_key = "_id")]
+struct Product {
+    name: String,
+    description: String,
+    count: i32,
+}
+
+#[derive(Collection, Serialize, Deserialize, PartialEq, Debug)]
 #[deeb(
     name = "comment", 
     primary_key = "id",
@@ -50,23 +58,32 @@ struct UserAddress {
     address: Address,
 }
 
-async fn spawn_deeb(instance_name: &str) -> Result<(Deeb, Entity, Entity, Entity), Error> {
+async fn spawn_deeb(instance_name: &str) -> Result<(Deeb, Entity, Entity, Entity, Entity), Error> {
     let db = Deeb::new();
 
     let user = User::entity();
     let comment = Comment::entity();
     let user_address = UserAddress::entity();
+    let mut product = Product::entity();
+    product.add_index("product_compound_index", vec!["name", "count"], None);
+    product.add_index("primary_key_index", vec!["_id"], None);
 
     // Add instances
     db.add_instance(
         instance_name,
         &format!("./db/test_{}.json", instance_name),
-        vec![user.clone(), comment.clone(), user_address.clone()],
+        vec![
+            user.clone(),
+            comment.clone(),
+            user_address.clone(),
+            product.clone(),
+        ],
     )
     .await?;
 
     db.delete_many(&user, Query::All, None).await?;
     db.delete_many(&comment, Query::All, None).await?;
+    db.delete_many(&product, Query::All, None).await?;
 
     // Populate initial data
     db.insert_one::<User, User>(
@@ -137,7 +154,7 @@ async fn spawn_deeb(instance_name: &str) -> Result<(Deeb, Entity, Entity, Entity
     )
     .await?;
 
-    Ok((db, user, comment, user_address))
+    Ok((db, user, comment, user_address, product.clone()))
 }
 
 #[tokio::test]
@@ -1010,7 +1027,7 @@ struct UserAddressBefore {
 
 #[tokio::test]
 async fn add_key_nested() -> Result<(), Error> {
-    let (db, _user, _comment, user_address) = spawn_deeb("add_key_nested").await?;
+    let (db, _user, _comment, user_address, _product) = spawn_deeb("add_key_nested").await?;
     db.delete_many(&user_address, Query::All, None).await?;
     db.insert_one::<UserAddress, UserAddress>(
         &user_address,
@@ -1081,5 +1098,33 @@ async fn find_by_association() -> Result<(), Error> {
         .ok_or_else(|| Error::msg("Expected type but found none."))?;
     let first_comment = result[0].user_comment[0].comment.clone();
     assert_eq!(first_comment, "Hello");
+    Ok(())
+}
+
+// Indexes
+#[tokio::test]
+async fn build_index() -> Result<(), Error> {
+    let (db, _user, _comment, _ua, product) = spawn_deeb("build_index").await?;
+    let values = vec![
+        Product {
+            name: "keyboard".to_string(),
+            description: "Computer keyboard".to_string(),
+            count: 2000,
+        },
+        Product {
+            name: "monitor".to_string(),
+            description: "Computer monitor".to_string(),
+            count: 2000,
+        },
+        Product {
+            name: "mouse".to_string(),
+            description: "Computer mouse".to_string(),
+            count: 5000,
+        },
+    ];
+    let result = db
+        .insert_many::<Product, Product>(&product, values, None)
+        .await?;
+    println!("DATABASE: {db:?}");
     Ok(())
 }
