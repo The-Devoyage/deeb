@@ -29,9 +29,12 @@ pub struct EntityAssociation {
 }
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Serialize, Deserialize)]
+pub struct PrimaryKey(pub String);
+
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Serialize, Deserialize)]
 pub struct Entity {
     pub name: EntityName,
-    pub primary_key: Option<String>,
+    pub primary_key: PrimaryKey,
     pub associations: Vec<EntityAssociation>,
     pub indexes: Vec<Index>,
 }
@@ -46,14 +49,14 @@ impl Entity {
     pub fn new(s: &str) -> Self {
         Entity {
             name: EntityName::from(s),
-            primary_key: None,
+            primary_key: PrimaryKey("_id".to_string()),
             associations: vec![],
             indexes: vec![],
         }
     }
 
     pub fn primary_key(&mut self, key: &str) -> Self {
-        self.primary_key = Some(key.to_string());
+        self.primary_key = PrimaryKey(key.to_string());
         self.clone()
     }
 

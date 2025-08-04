@@ -15,7 +15,7 @@ struct Product {
 #[derive(Collection, Serialize, Deserialize, PartialEq, Debug)]
 #[deeb(
     name = "comment", 
-    primary_key = "id",
+    primary_key = "_id",
     associate = ("user", "user_id", "id"),
 )]
 struct Comment {
@@ -943,10 +943,10 @@ async fn drop_key() -> Result<(), Error> {
 
 #[tokio::test]
 async fn drop_key_nested() -> Result<(), Error> {
-    let (db, user, _comment, ..) = spawn_deeb("drop_key_nested").await?;
-    db.delete_many(&user, Query::All, None).await?;
+    let (db, _user, _comment, user_address, ..) = spawn_deeb("drop_key_nested").await?;
+    db.delete_many(&user_address, Query::All, None).await?;
     db.insert_one::<UserAddress, UserAddress>(
-        &user,
+        &user_address,
         UserAddress {
             name: "oliver".to_string(),
             address: Address {
@@ -962,7 +962,7 @@ async fn drop_key_nested() -> Result<(), Error> {
     )
     .await?;
     db.insert_one::<UserAddress, UserAddress>(
-        &user,
+        &user_address,
         UserAddress {
             name: "olivia".to_string(),
             address: Address {
@@ -977,10 +977,11 @@ async fn drop_key_nested() -> Result<(), Error> {
         None,
     )
     .await?;
-    db.drop_key(&user, "address.meta.additional").await?;
+    db.drop_key(&user_address, "address.meta.additional")
+        .await?;
     let query = Query::eq("address.country", "nigeria");
     let result = db
-        .find_one::<UserAddress>(&user, query, None)
+        .find_one::<UserAddress>(&user_address, query, None)
         .await?
         .ok_or_else(|| Error::msg("Expected type but found none"))?;
     assert!(result.address.meta.unwrap().additional.is_none());
@@ -1056,11 +1057,15 @@ async fn add_key_nested() -> Result<(), Error> {
     )
     .await?;
 
-    db.insert_one::<UserAddressBefore, UserAddressBefore>(
+    db.insert_one::<UserAddressBefore, UserAddress>(
         &user_address,
         UserAddressBefore {
             name: "olivia".to_string(),
-            address: None,
+            address: Some(Address {
+                city: "new york".to_string(),
+                country: "USA".to_string(),
+                meta: None,
+            }),
         },
         None,
     )
@@ -1091,13 +1096,32 @@ struct UserWithComments {
 #[tokio::test]
 async fn find_by_association() -> Result<(), Error> {
     let (db, user, comment, ..) = spawn_deeb("find_by_association").await?;
+
     let query = Query::associated(comment.clone(), Query::eq("user_comment.comment", "Hello"));
+
     let result = db
         .find_many::<UserWithComments>(&user, query, None, None)
         .await?
         .ok_or_else(|| Error::msg("Expected type but found none."))?;
-    let first_comment = result[0].user_comment[0].comment.clone();
-    assert_eq!(first_comment, "Hello");
+
+    // Flatten all comments from all users
+    let all_comments: Vec<_> = result
+        .iter()
+        .flat_map(|user_with_comments| {
+            user_with_comments
+                .user_comment
+                .iter()
+                .map(|c| c.comment.clone())
+        })
+        .collect();
+
+    // Assert that "Hello" is in the comments
+    assert!(
+        all_comments.contains(&"Hello".to_string()),
+        "Expected to find a comment with 'Hello', but got: {:?}",
+        all_comments
+    );
+
     Ok(())
 }
 
@@ -1122,9 +1146,7 @@ async fn build_index() -> Result<(), Error> {
             count: 5000,
         },
     ];
-    let result = db
-        .insert_many::<Product, Product>(&product, values, None)
+    db.insert_many::<Product, Product>(&product, values, None)
         .await?;
-    println!("DATABASE: {db:?}");
     Ok(())
 }

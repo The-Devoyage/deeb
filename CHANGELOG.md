@@ -1,5 +1,15 @@
 # Deeb Changelog
 
+## v0.0.13
+
+### Added
+
+- BTree Indexing support for primary keys, custom keys, and composite keys
+
+### Changed
+
+- Storage structure is changing from `HashMap<EntityName, Vec<Document>>` to `HashMap<EntityName, HashMap<PrimaryKey, Document>>` to support indexing lookups.
+
 ## v0.0.12
 
 ### Added

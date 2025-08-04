@@ -1,6 +1,6 @@
 use anyhow::Error;
 use chrono::{DateTime, Utc};
-use database_instance::DatabaseInstance;
+use database_instance::{DatabaseInstance, PrimaryKeyValue};
 use find_many_options::{FindManyOptions, FindManyOrder, OrderDirection};
 use fs2::FileExt;
 use instance_name::InstanceName;
@@ -14,14 +14,14 @@ use ulid::Ulid;
 
 use serde_json::{Map, Value, json};
 
-use crate::entity::Entity;
+use crate::entity::{Entity, EntityName};
 
 pub mod database_instance;
 pub mod find_many_options;
+pub mod index;
 pub mod instance_name;
 pub mod query;
 pub mod transaction;
-pub mod index;
 
 pub type DbResult<T> = Result<T, anyhow::Error>;
 
@@ -127,39 +127,57 @@ impl Database {
         Ok(self)
     }
 
-    pub fn load_instance(&mut self, name: &InstanceName) -> Result<&mut Self, Error> {
+    fn initialize_empty_data(
+        entities: &Vec<Entity>,
+    ) -> HashMap<EntityName, HashMap<String, Value>> {
+        entities
+            .iter()
+            .map(|entity| (entity.name.clone(), HashMap::new()))
+            .collect()
+    }
+
+    pub fn load_instance(&mut self, name: &InstanceName) -> DbResult<&mut Self> {
         let instance = self
             .instances
             .get_mut(name)
             .ok_or_else(|| Error::msg("Instance not found"))?;
-        let file = fs::OpenOptions::new()
+
+        let file_result = fs::OpenOptions::new()
             .read(true)
             .write(true)
             .open(&instance.file_path);
-        match file {
+
+        match file_result {
             Ok(mut file) => {
                 file.lock_exclusive()?;
-                let buf = &mut Vec::new();
-                file.read_to_end(buf)?;
-                instance.data = serde_json::from_slice(buf)?;
+                let mut buf = Vec::new();
+                file.read_to_end(&mut buf)?;
+
+                if buf.is_empty() {
+                    instance.data = Database::initialize_empty_data(&instance.entities);
+                } else {
+                    instance.data = serde_json::from_slice(&buf).map_err(|e| {
+                        log::error!("Failed to read json.");
+                        e
+                    })?;
+                }
+
                 fs2::FileExt::unlock(&file)?
             }
             Err(_) => {
                 let mut file = fs::File::create(&instance.file_path)?;
-                let entities = instance.entities.clone();
-                let json = Value::Object(
-                    entities
-                        .iter()
-                        .map(|entity| (entity.name.to_string().clone(), Value::Array(Vec::new())))
-                        .collect(),
-                );
                 file.lock_exclusive()?;
-                instance.data = serde_json::from_slice(serde_json::to_string(&json)?.as_bytes())?;
-                file.write_all(serde_json::to_string(&json)?.as_bytes())?;
+
+                let data = Database::initialize_empty_data(&instance.entities);
+                let json = serde_json::to_string(&data)?;
+                file.write_all(json.as_bytes())?;
                 file.sync_all()?;
+
+                instance.data = data;
                 fs2::FileExt::unlock(&file)?
             }
         }
+
         Ok(self)
     }
 
@@ -188,7 +206,6 @@ impl Database {
     // Operations
     pub fn insert_one(&mut self, entity: &Entity, mut insert_value: Value) -> DbResult<Value> {
         // Check insert_value, it needs to be a JSON object.
-        // It can not have field or `_id`.
         if !insert_value.is_object() {
             return Err(Error::msg("Value must be a JSON object"));
         }
@@ -217,12 +234,12 @@ impl Database {
         let instance = self
             .get_instance_by_entity_mut(entity)
             .ok_or_else(|| Error::msg("Entity not found"))?;
-        let data = instance
-            .data
-            .entry(entity.name.clone())
-            .or_insert(Vec::new());
+        let data = instance.get_or_init(&entity.name);
 
-        data.push(insert_value.clone());
+        let primary_key_value = PrimaryKeyValue::new(&insert_value, &entity.primary_key)?;
+
+        data.insert(primary_key_value.to_string(), insert_value.clone());
+
         Ok(insert_value)
     }
 
@@ -259,14 +276,16 @@ impl Database {
         let instance = self
             .get_instance_by_entity_mut(entity)
             .ok_or_else(|| Error::msg("Entity not found"))?;
-        let data = instance
-            .data
-            .entry(entity.name.clone())
-            .or_insert(Vec::new());
+        let data = instance.get_or_init(&entity.name);
 
         let mut values = vec![];
+
         for insert_value in insert_values {
-            data.push(insert_value.clone());
+            let primary_key_value = PrimaryKeyValue::new(&insert_value, &entity.primary_key)?;
+            data.insert(
+                PrimaryKeyValue::from(primary_key_value).to_string(),
+                insert_value.clone(),
+            );
             values.push(insert_value);
         }
         Ok(values)
@@ -281,7 +300,7 @@ impl Database {
             .get(&entity.name)
             .ok_or_else(|| Error::msg("Data not found"))?;
         let result = data
-            .iter()
+            .values()
             .find(|value| query.clone().matches(value).unwrap_or(false));
         result
             .map(|value| value.clone())
@@ -308,7 +327,7 @@ impl Database {
             order: None,
         });
         let mut data = data
-            .iter()
+            .values()
             .map(|value| {
                 let mut value = value.clone();
                 for associated_entity in associated_entities.iter() {
@@ -368,36 +387,53 @@ impl Database {
         let instance = self
             .get_instance_by_entity_mut(entity)
             .ok_or_else(|| Error::msg("Entity not found"))?;
+
         let data = instance
             .data
             .get_mut(&entity.name)
             .ok_or_else(|| Error::msg("Data not found"))?;
-        let index = data
+
+        // Find the key for the matching value
+        let matching_key = data
             .iter()
-            .position(|value| query.clone().matches(value).unwrap_or(false))
+            .find(|(_, value)| query.clone().matches(value).unwrap_or(false))
+            .map(|(key, _)| key.clone())
             .ok_or_else(|| Error::msg("Value not found"))?;
-        Ok(data.remove(index))
+
+        // Remove by key
+        let removed = data
+            .remove(&matching_key)
+            .ok_or_else(|| Error::msg("Failed to remove value"))?;
+
+        Ok(removed)
     }
 
     pub fn delete_many(&mut self, entity: &Entity, query: Query) -> DbResult<Vec<Value>> {
         let instance = self
             .get_instance_by_entity_mut(entity)
             .ok_or_else(|| Error::msg("Entity not found"))?;
+
         let data = instance
             .data
             .get_mut(&entity.name)
             .ok_or_else(|| Error::msg("Data not found"))?;
-        let indexes = data
+
+        // Collect matching keys
+        let matching_keys: Vec<_> = data
             .iter()
-            .enumerate()
             .filter(|(_, value)| query.clone().matches(value).unwrap_or(false))
-            .map(|(index, _)| index)
-            .collect::<Vec<_>>();
-        let mut values = vec![];
-        for index in indexes.iter().rev() {
-            values.push(data.remove(*index));
+            .map(|(key, _)| key.clone())
+            .collect();
+
+        // Remove and collect values
+        let mut removed_values = Vec::new();
+        for key in matching_keys {
+            if let Some(val) = data.remove(&key) {
+                removed_values.push(val);
+            }
         }
-        Ok(values)
+
+        Ok(removed_values)
     }
 
     pub fn update_one(
@@ -409,34 +445,48 @@ impl Database {
         let instance = self
             .get_instance_by_entity_mut(entity)
             .ok_or_else(|| Error::msg("Entity not found"))?;
+
         let data = instance
             .data
             .get_mut(&entity.name)
             .ok_or_else(|| Error::msg("Data not found"))?;
-        let index = data
+
+        // Find the matching key in the hashmap
+        let matching_key = data
             .iter()
-            .position(|value| query.clone().matches(value).unwrap_or(false))
+            .find_map(|(key, value)| {
+                if query.clone().matches(value).unwrap_or(false) {
+                    Some(key.clone())
+                } else {
+                    None
+                }
+            })
             .ok_or_else(|| Error::msg("Value not found"))?;
+
         let value = data
-            .get_mut(index)
+            .get_mut(&matching_key)
             .ok_or_else(|| Error::msg("Value not found"))?;
-        // combine the values together, so that the updated values are merged with the existing values.
+
+        // Merge the existing value with the update
         let new_value = match value {
-            Value::Object(value) => {
-                let update_value = match update_value {
-                    Value::Object(update_value) => update_value,
+            Value::Object(existing_obj) => {
+                let update_obj = match update_value {
+                    Value::Object(update_obj) => update_obj,
                     _ => return Err(Error::msg("Update value must be a JSON object")),
                 };
-                let mut value = value.clone();
-                for (update_key, update_value) in update_value {
-                    if !update_value.is_null() {
-                        value.insert(update_key, update_value);
+
+                let mut merged = existing_obj.clone();
+                for (k, v) in update_obj {
+                    if !v.is_null() {
+                        merged.insert(k, v);
                     }
                 }
-                Value::Object(value)
+
+                Value::Object(merged)
             }
             _ => return Err(Error::msg("Value must be a JSON object")),
         };
+
         *value = new_value.clone();
         Ok(new_value)
     }
@@ -450,42 +500,41 @@ impl Database {
         let instance = self
             .get_instance_by_entity_mut(entity)
             .ok_or_else(|| Error::msg("Entity not found"))?;
+
         let data = instance
             .data
             .get_mut(&entity.name)
             .ok_or_else(|| Error::msg("Data not found"))?;
-        let indexes = data
-            .iter()
-            .enumerate()
-            .filter(|(_, value)| query.clone().matches(value).unwrap_or(false))
-            .map(|(index, _)| index)
-            .collect::<Vec<_>>();
-        let mut values = vec![];
-        for index in indexes.iter() {
-            let value = data
-                .get_mut(*index)
-                .ok_or_else(|| Error::msg("Value not found"))?;
-            // combine the values together, so that the updated values are merged with the existing values.
-            let new_value = match value {
-                Value::Object(value) => {
-                    let update_value = match update_value.clone() {
-                        Value::Object(update_value) => update_value,
-                        _ => return Err(Error::msg("Value must be a JSON object")),
-                    };
-                    let mut value = value.clone();
-                    for (update_key, update_value) in update_value {
-                        if !update_value.is_null() {
-                            value.insert(update_key, update_value);
+
+        let mut updated_values = vec![];
+
+        for (_key, value) in data.iter_mut() {
+            if query.clone().matches(value).unwrap_or(false) {
+                let updated_value = match value {
+                    Value::Object(obj) => {
+                        let update_obj = match update_value.clone() {
+                            Value::Object(u) => u,
+                            _ => return Err(Error::msg("Update value must be a JSON object")),
+                        };
+
+                        for (k, v) in update_obj.into_iter() {
+                            if !v.is_null() {
+                                obj.insert(k, v);
+                            }
                         }
+
+                        Value::Object(obj.clone()) // clone to push to return vec
                     }
-                    Value::Object(value)
-                }
-                _ => return Err(Error::msg("Value must be a JSON object")),
-            };
-            *value = new_value.clone();
-            values.push(new_value);
+                    _ => return Err(Error::msg("Stored value must be a JSON object")),
+                };
+
+                // Mutate the value in-place
+                *value = updated_value.clone();
+                updated_values.push(updated_value);
+            }
         }
-        Ok(values)
+
+        Ok(updated_values)
     }
 
     pub fn commit(&self, names: Vec<InstanceName>) -> Result<(), Error> {
@@ -539,7 +588,7 @@ impl Database {
             .get_mut(&entity.name)
             .ok_or_else(|| Error::msg("Data not found"))?;
         // Iterate through the entities
-        for value in data.iter_mut() {
+        for value in data.values_mut() {
             match value {
                 Value::Object(value) => {
                     if key.contains('.') {
@@ -594,7 +643,7 @@ impl Database {
             .data
             .get_mut(&entity.name)
             .ok_or_else(|| Error::msg("Data not found"))?;
-        for current in data.iter_mut() {
+        for current in data.values_mut() {
             let keys = key.split('.').collect::<Vec<&str>>();
             let mut json = json!({});
             let mut current = current;

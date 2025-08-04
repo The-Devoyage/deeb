@@ -104,12 +104,10 @@ impl Database {
 
             built_indexes.push(BuiltIndex {
                 // TODO: store Vec<String> instead of just one column
-                column: columns.join(","), 
+                column: columns.join(","),
                 map,
             });
         }
-
-        println!("BUILT::: {:?}", built_indexes);
 
         Ok(IndexStore {
             indexes: built_indexes,

@@ -112,7 +112,7 @@ pub fn derive_deeb(input: TokenStream) -> TokenStream {
         .as_ref()
         .and_then(|a| a.primary_key.as_ref())
         .map(|n| n.value())
-        .unwrap_or_else(|| "id".to_string());
+        .unwrap_or_else(|| "_id".to_string());
 
     let empty = Vec::new();
     let associations = args

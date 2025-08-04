@@ -1,10 +1,12 @@
 use anyhow::Error;
+use chrono::{DateTime, Utc};
 use deeb_core::database::find_many_options::FindManyOptions;
 use log::*;
 use serde::{de::DeserializeOwned, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use ulid::Ulid;
 
 use crate::{Database, Entity, ExecutedValue, InstanceName, Operation, Query, Transaction};
 
@@ -82,9 +84,9 @@ impl Deeb {
         let mut db = self.db.write().await;
         db.add_instance(&name.into(), file_path, entities.clone())?;
         db.load_instance(&name.into())?;
-        for entity in entities {
-            db.build_index(&entity)?;
-        }
+        // for entity in entities {
+        //     db.build_index(&entity)?;
+        // }
         Ok(self)
     }
 
@@ -125,8 +127,29 @@ impl Deeb {
         K: DeserializeOwned,
     {
         debug!("Inserting");
-        let value = serde_json::to_value(value)?;
+        let mut value = serde_json::to_value(value)?;
         if let Some(transaction) = transaction {
+            // Insert _id if it's not present
+            let mut _id = None;
+            if value.get("_id").is_none() {
+                _id = Some(Ulid::new());
+                if let Some(obj) = value.as_object_mut() {
+                    obj.insert("_id".to_string(), json!(_id.unwrap().to_string()));
+                }
+            }
+
+            if value.get("_created_at").is_none() {
+                let server_time = if let Some(id) = _id {
+                    DateTime::<Utc>::from(id.datetime())
+                } else {
+                    Utc::now()
+                };
+
+                if let Some(obj) = value.as_object_mut() {
+                    obj.insert("_created_at".to_string(), json!(server_time.to_rfc3339()));
+                }
+            }
+
             let operation = Operation::InsertOne {
                 entity: entity.clone(),
                 value: value.clone(),
@@ -179,7 +202,7 @@ impl Deeb {
         K: DeserializeOwned,
     {
         debug!("Inserting many");
-        let values: Vec<Value> = values
+        let mut values: Vec<Value> = values
             .into_iter()
             .map(serde_json::to_value)
             .collect::<Result<_, _>>()?;
@@ -188,6 +211,28 @@ impl Deeb {
                 entity: entity.clone(),
                 values: values.clone(),
             };
+            for value in values.iter_mut() {
+                // Insert _id if it's not present
+                let mut _id = None;
+                if value.get("_id").is_none() {
+                    _id = Some(Ulid::new());
+                    if let Some(obj) = value.as_object_mut() {
+                        obj.insert("_id".to_string(), json!(_id.unwrap().to_string()));
+                    }
+                }
+
+                if value.get("_created_at").is_none() {
+                    let server_time = if let Some(id) = _id {
+                        DateTime::<Utc>::from(id.datetime())
+                    } else {
+                        Utc::now()
+                    };
+
+                    if let Some(obj) = value.as_object_mut() {
+                        obj.insert("_created_at".to_string(), json!(server_time.to_rfc3339()));
+                    }
+                }
+            }
             transaction.add_operation(operation);
             let typed: Result<Vec<K>, _> = values.into_iter().map(serde_json::from_value).collect();
             return Ok(typed?);
@@ -720,6 +765,8 @@ impl Deeb {
                 Operation::DeleteMany { entity, .. } => match executed_value {
                     ExecutedValue::DeletedMany(values) => {
                         for value in values.iter() {
+                            // TODO: Note that insering one may not be the best replacement
+                            // option.:w
                             db.insert_one(&entity, value.clone()).unwrap();
                         }
                     }
