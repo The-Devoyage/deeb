@@ -122,6 +122,7 @@ impl Database {
             file_path: file_path.to_string(),
             entities: entities.clone(),
             data: HashMap::new(),
+            indexes: HashMap::new(),
         };
         self.instances.insert(name.clone(), instance);
         Ok(self)
@@ -240,6 +241,9 @@ impl Database {
 
         data.insert(primary_key_value.to_string(), insert_value.clone());
 
+        // Handle indexing
+        self.append_indexes(entity, &[insert_value.clone()])?;
+
         Ok(insert_value)
     }
 
@@ -252,7 +256,7 @@ impl Database {
             if !insert_value.is_object() {
                 return Err(Error::msg("Value must be a JSON object"));
             }
-            // Insert _id if it's not present
+
             let mut _id = None;
             if insert_value.get("_id").is_none() {
                 _id = Some(Ulid::new());
@@ -273,22 +277,24 @@ impl Database {
                 }
             }
         }
-        let instance = self
-            .get_instance_by_entity_mut(entity)
-            .ok_or_else(|| Error::msg("Entity not found"))?;
-        let data = instance.get_or_init(&entity.name);
 
-        let mut values = vec![];
+        // Do one mutable borrow of self to insert all values.
+        {
+            let instance = self
+                .get_instance_by_entity_mut(entity)
+                .ok_or_else(|| Error::msg("Entity not found"))?;
+            let data = instance.get_or_init(&entity.name);
 
-        for insert_value in insert_values {
-            let primary_key_value = PrimaryKeyValue::new(&insert_value, &entity.primary_key)?;
-            data.insert(
-                PrimaryKeyValue::from(primary_key_value).to_string(),
-                insert_value.clone(),
-            );
-            values.push(insert_value);
+            for insert_value in &insert_values {
+                let primary_key_value = PrimaryKeyValue::new(insert_value, &entity.primary_key)?;
+                data.insert(primary_key_value.to_string(), insert_value.clone());
+            }
         }
-        Ok(values)
+
+        // Append indexes in a separate borrow
+        self.append_indexes(entity, &insert_values)?;
+
+        Ok(insert_values)
     }
 
     pub fn find_one(&self, entity: &Entity, query: Query) -> DbResult<Value> {

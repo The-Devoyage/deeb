@@ -84,9 +84,9 @@ impl Deeb {
         let mut db = self.db.write().await;
         db.add_instance(&name.into(), file_path, entities.clone())?;
         db.load_instance(&name.into())?;
-        // for entity in entities {
-        //     db.build_index(&entity)?;
-        // }
+        for entity in entities {
+            db.build_index(&entity)?;
+        }
         Ok(self)
     }
 

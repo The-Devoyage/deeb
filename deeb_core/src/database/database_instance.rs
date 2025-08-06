@@ -8,6 +8,7 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 
 use super::DbResult;
+use super::index::IndexStore;
 
 #[derive(Debug, Clone, Eq, Deserialize, Serialize)]
 pub enum PrimaryKeyValue {
@@ -89,6 +90,7 @@ pub struct DatabaseInstance {
     pub file_path: String,
     pub entities: Vec<Entity>,
     pub data: HashMap<EntityName, InstanceData>,
+    pub indexes: HashMap<EntityName, IndexStore>,
 }
 
 impl DatabaseInstance {

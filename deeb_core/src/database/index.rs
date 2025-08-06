@@ -1,7 +1,7 @@
-use std::collections::BTreeMap;
-
+use anyhow::Error;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::BTreeMap;
 
 use crate::entity::Entity;
 
@@ -39,7 +39,7 @@ pub enum ValueKey {
 
 #[derive(Debug, Clone)]
 pub struct BuiltIndex {
-    pub column: String,
+    pub columns: Vec<String>,
     pub map: BTreeMap<IndexKey, Vec<EntityID>>,
 }
 
@@ -59,7 +59,7 @@ fn value_to_key(value: &Value) -> Option<ValueKey> {
 }
 
 impl Database {
-    pub fn build_index(&self, entity: &Entity) -> DbResult<IndexStore> {
+    pub fn build_index(&mut self, entity: &Entity) -> DbResult<()> {
         let mut built_indexes = Vec::<BuiltIndex>::new();
         let rows = self.find_many(entity, Query::All, None)?;
 
@@ -103,14 +103,89 @@ impl Database {
             }
 
             built_indexes.push(BuiltIndex {
-                // TODO: store Vec<String> instead of just one column
-                column: columns.join(","),
+                columns: columns.to_vec(),
                 map,
             });
         }
 
-        Ok(IndexStore {
+        let instance = self
+            .get_instance_by_entity_mut(entity)
+            .ok_or(Error::msg("Failed to find instance while indexing."))?;
+
+        let index_store = IndexStore {
             indexes: built_indexes,
-        })
+        };
+
+        instance.indexes.insert(entity.name.clone(), index_store);
+
+        Ok(())
+    }
+
+    pub fn append_indexes(&mut self, entity: &Entity, inserted: &[Value]) -> DbResult<()> {
+        let instance = self
+            .get_instance_by_entity_mut(entity)
+            .ok_or_else(|| Error::msg("Entity not found for indexing"))?;
+
+        let index_store = instance
+            .indexes
+            .entry(entity.name.clone())
+            .or_insert_with(|| IndexStore { indexes: vec![] });
+
+        for index_def in &entity.indexes {
+            let columns = &index_def.columns;
+            if columns.is_empty() {
+                continue;
+            }
+
+            // Find matching built index or create new one
+            let built_index = index_store
+                .indexes
+                .iter_mut()
+                .find(|idx| idx.columns == *columns);
+
+            let index_map = if let Some(existing) = built_index {
+                &mut existing.map
+            } else {
+                index_store.indexes.push(BuiltIndex {
+                    columns: columns.clone(),
+                    map: BTreeMap::new(),
+                });
+                &mut index_store.indexes.last_mut().unwrap().map
+            };
+
+            for row in inserted {
+                let mut key_parts = Vec::new();
+                let mut skip = false;
+
+                for col in columns {
+                    match row.get(col).and_then(value_to_key) {
+                        Some(part) => key_parts.push(part),
+                        None => {
+                            skip = true;
+                            break;
+                        }
+                    }
+                }
+
+                if skip {
+                    continue;
+                }
+
+                let key = if key_parts.len() == 1 {
+                    IndexKey::Single(key_parts[0].clone())
+                } else {
+                    IndexKey::Compound(key_parts)
+                };
+
+                if let Some(_id) = row.get("_id").and_then(|v| v.as_str()) {
+                    index_map
+                        .entry(key)
+                        .or_insert_with(Vec::new)
+                        .push(_id.to_string());
+                }
+            }
+        }
+
+        Ok(())
     }
 }
