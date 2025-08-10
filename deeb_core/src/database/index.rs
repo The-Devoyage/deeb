@@ -48,7 +48,7 @@ pub struct IndexStore {
     pub indexes: Vec<BuiltIndex>,
 }
 
-fn value_to_key(value: &Value) -> Option<ValueKey> {
+pub fn value_to_key(value: &Value) -> Option<ValueKey> {
     match value {
         Value::String(s) => Some(ValueKey::String(s.clone())),
         Value::Number(n) => n.as_i64().map(ValueKey::Number),

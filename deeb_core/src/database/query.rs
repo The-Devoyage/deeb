@@ -4,7 +4,7 @@ use serde_json::Value;
 use crate::entity::Entity;
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub struct Key(String);
+pub struct Key(pub String);
 
 impl std::fmt::Display for Key {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {

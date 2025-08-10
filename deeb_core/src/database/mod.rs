@@ -3,9 +3,10 @@ use chrono::{DateTime, Utc};
 use database_instance::{DatabaseInstance, PrimaryKeyValue};
 use find_many_options::{FindManyOptions, FindManyOrder, OrderDirection};
 use fs2::FileExt;
+use index::{IndexKey, value_to_key};
 use instance_name::InstanceName;
 use log::*;
-use query::Query;
+use query::{Key, Query};
 use std::collections::HashMap;
 use std::fs::{self, OpenOptions};
 use std::io::{Read, Write};
@@ -326,44 +327,85 @@ impl Database {
             .data
             .get(&entity.name)
             .ok_or_else(|| Error::msg("Data not found"))?;
-        let associated_entities = query.associated_entities();
         let FindManyOptions { skip, limit, order } = find_many_options.unwrap_or(FindManyOptions {
             skip: None,
             limit: None,
             order: None,
         });
-        let mut data = data
-            .values()
-            .map(|value| {
-                let mut value = value.clone();
-                for associated_entity in associated_entities.iter() {
-                    let association = entity
-                        .associations
-                        .iter()
-                        .find(|association| association.entity_name == associated_entity.name);
 
-                    if association.is_none() {
-                        continue;
+        // Attempt to use an index if it's a simple EQ query
+        if let Query::Eq(field, ref value) = query.clone() {
+            println!("ATTEMPTING TO USE QUERY");
+            if let Some(index_store) = instance.indexes.get(&entity.name) {
+                if let Some(built_index) = index_store
+                    .indexes
+                    .iter()
+                    .find(|idx| idx.columns == vec![field.to_string()])
+                {
+                    let key = value_to_key(value).map(IndexKey::Single);
+                    if let Some(key) = key {
+                        if let Some(ids) = built_index.map.get(&key) {
+                            // Retrieve values directly using _id
+                            let mut result = Vec::new();
+                            for id in ids {
+                                if let Some(val) =
+                                    instance.data.get(&entity.name).and_then(|map| map.get(id))
+                                {
+                                    result.push(val.clone());
+                                }
+                            }
+
+                            // Skip / Limit / Order still apply
+                            return Ok(self.apply_skip_limit_order(
+                                self, &entity, &query, result, skip, limit, order,
+                            ));
+                        }
                     }
-
-                    let association = association.unwrap();
-                    let association_query = Query::eq(
-                        association.to.clone().as_str(),
-                        value.get(association.from.clone()).unwrap().clone(), //TODO: Unwrap this
-                                                                              //safely
-                    );
-                    let associated_data = self
-                        .find_many(associated_entity, association_query, None)
-                        .unwrap();
-
-                    value.as_object_mut().unwrap().insert(
-                        association.alias.clone().to_string(),
-                        Value::Array(associated_data),
-                    );
                 }
-                value
-            })
-            .collect::<Vec<Value>>();
+            }
+        }
+
+        // Get data
+        let data = data.values().map(|v| v.clone()).collect();
+        Ok(self.apply_skip_limit_order(self, &entity, &query, data, skip, limit, order))
+    }
+
+    fn apply_skip_limit_order(
+        &self,
+        db: &Database,
+        entity: &Entity,
+        query: &Query,
+        mut data: Vec<Value>,
+        skip: Option<i32>,
+        limit: Option<i32>,
+        order: Option<Vec<FindManyOrder>>,
+    ) -> Vec<Value> {
+        // Apply associations
+        let associated_entities = query.associated_entities();
+        for value in data.iter_mut() {
+            for associated_entity in associated_entities.iter() {
+                println!("ASSOCIAED ENTITIES FOUND: {associated_entity:?}");
+                let association = entity
+                    .associations
+                    .iter()
+                    .find(|a| a.entity_name == associated_entity.name);
+                if let Some(association) = association {
+                    if let Some(from_val) = value.get(&association.from) {
+                        let assoc_query = Query::eq(Key(association.to.clone()), from_val.clone());
+                        if let Ok(associated_data) =
+                            db.find_many(associated_entity, assoc_query, None)
+                        {
+                            value.as_object_mut().unwrap().insert(
+                                association.alias.to_string(),
+                                Value::Array(associated_data),
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        // Order
         if let Some(ordering) = order {
             for FindManyOrder {
                 property,
@@ -381,12 +423,16 @@ impl Database {
                 });
             }
         }
+
+        // Filter (for extra non-indexed constraints)
         let result = data
-            .iter()
-            .filter(|value| query.clone().matches(value).unwrap_or(false));
-        let skipped = result.skip(skip.unwrap_or(0) as usize);
-        let limited = skipped.take(limit.unwrap_or(i32::MAX) as usize);
-        Ok(limited.cloned().collect())
+            .into_iter()
+            .filter(|val| query.matches(val).unwrap_or(false))
+            .skip(skip.unwrap_or(0) as usize)
+            .take(limit.unwrap_or(i32::MAX) as usize)
+            .collect();
+
+        result
     }
 
     pub fn delete_one(&mut self, entity: &Entity, query: Query) -> DbResult<Value> {
