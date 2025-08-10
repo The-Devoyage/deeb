@@ -3,7 +3,7 @@ use chrono::{DateTime, Utc};
 use database_instance::{DatabaseInstance, PrimaryKeyValue};
 use find_many_options::{FindManyOptions, FindManyOrder, OrderDirection};
 use fs2::FileExt;
-use index::{IndexKey, value_to_key};
+use index_constrant::{collect_constraints, query_with_index};
 use instance_name::InstanceName;
 use log::*;
 use query::{Key, Query};
@@ -20,6 +20,7 @@ use crate::entity::{Entity, EntityName};
 pub mod database_instance;
 pub mod find_many_options;
 pub mod index;
+pub mod index_constrant;
 pub mod instance_name;
 pub mod query;
 pub mod transaction;
@@ -333,33 +334,33 @@ impl Database {
             order: None,
         });
 
-        // Attempt to use an index if it's a simple EQ query
-        if let Query::Eq(field, ref value) = query.clone() {
-            println!("ATTEMPTING TO USE QUERY");
-            if let Some(index_store) = instance.indexes.get(&entity.name) {
-                if let Some(built_index) = index_store
-                    .indexes
-                    .iter()
-                    .find(|idx| idx.columns == vec![field.to_string()])
-                {
-                    let key = value_to_key(value).map(IndexKey::Single);
-                    if let Some(key) = key {
-                        if let Some(ids) = built_index.map.get(&key) {
-                            // Retrieve values directly using _id
-                            let mut result = Vec::new();
-                            for id in ids {
-                                if let Some(val) =
-                                    instance.data.get(&entity.name).and_then(|map| map.get(id))
-                                {
-                                    result.push(val.clone());
-                                }
-                            }
+        let mut constraints = HashMap::new();
+        collect_constraints(&query, &mut constraints);
 
-                            // Skip / Limit / Order still apply
-                            return Ok(self.apply_skip_limit_order(
-                                self, &entity, &query, result, skip, limit, order,
-                            ));
-                        }
+        if let Some(index_store) = instance.indexes.get(&entity.name) {
+            if !constraints.is_empty() {
+                for idx in &index_store.indexes {
+                    if let Some(results) = query_with_index(idx, &constraints) {
+                        let filtered_data: Vec<Value> = results
+                            .into_iter()
+                            .filter_map(|id| {
+                                instance
+                                    .data
+                                    .get(&entity.name)
+                                    .and_then(|map| map.get(&id))
+                                    .cloned()
+                            })
+                            .collect();
+
+                        return Ok(self.apply_skip_limit_order(
+                            self,
+                            &entity,
+                            &query,
+                            filtered_data,
+                            skip,
+                            limit,
+                            order,
+                        ));
                     }
                 }
             }
