@@ -243,6 +243,8 @@ impl Database {
 
         data.insert(primary_key_value.to_string(), insert_value.clone());
 
+        //TODO: Need to update built index with the custom indexes
+
         // Handle indexing
         self.append_indexes(entity, &[insert_value.clone()])?;
 
@@ -291,6 +293,7 @@ impl Database {
                 let primary_key_value = PrimaryKeyValue::new(insert_value, &entity.primary_key)?;
                 data.insert(primary_key_value.to_string(), insert_value.clone());
             }
+            //TODO: Need to index the custom indexes
         }
 
         // Append indexes in a separate borrow
@@ -307,12 +310,92 @@ impl Database {
             .data
             .get(&entity.name)
             .ok_or_else(|| Error::msg("Data not found"))?;
-        let result = data
+
+        // Collect constraints for index use
+        let mut constraints = HashMap::new();
+        collect_constraints(&query, &mut constraints);
+
+        // 1. Try indexed search first
+        if let Some(index_store) = instance.indexes.get(&entity.name) {
+            if !constraints.is_empty() {
+                for idx in &index_store.indexes {
+                    if let Some(results) = query_with_index(idx, &constraints) {
+                        for id in results {
+                            if let Some(value) = data.get(&id) {
+                                if query.matches(value).unwrap_or(false) {
+                                    let mut found = value.clone();
+                                    self.apply_associations(&mut found, &query, entity);
+                                    return Ok(found);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Fallback: linear scan
+        for value in data.values() {
+            if query.matches(value).unwrap_or(false) {
+                let mut found = value.clone();
+                self.apply_associations(&mut found, &query, entity);
+                return Ok(found);
+            }
+        }
+
+        Err(Error::msg("Value not found"))
+    }
+
+    fn search_with_indexes<'a>(
+        &'a self,
+        entity: &Entity,
+        query: &Query,
+    ) -> DbResult<Vec<&'a Value>> {
+        let instance = self
+            .get_instance_by_entity(entity)
+            .ok_or_else(|| Error::msg("Entity not found"))?;
+        let data = instance
+            .data
+            .get(&entity.name)
+            .ok_or_else(|| Error::msg("Data not found"))?;
+
+        // Gather constraints
+        let mut constraints = HashMap::new();
+        collect_constraints(query, &mut constraints);
+
+        // 1. Try indexed search first
+        if let Some(index_store) = instance.indexes.get(&entity.name) {
+            println!("INDEX");
+            if !constraints.is_empty() {
+                println!("CONSTRAINTS FOUND");
+                for idx in &index_store.indexes {
+                    println!("IDX: {idx:?}");
+                    if let Some(results) = query_with_index(idx, &constraints) {
+                        let matches: Vec<&Value> = results
+                            .into_iter()
+                            .filter_map(|id| data.get(&id))
+                            .filter(|v| query.matches(v).unwrap_or(false))
+                            .collect();
+                        if !matches.is_empty() {
+                            return Ok(matches);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Fallback: full scan
+        // TODO: We are falling back to early. In the event that the index query does not match
+        // anyhthing but in the example that we are searching associated entities - We don't yet
+        // have that data?!
+        // but we also dont want to find every association for every record right?
+        println!("FULL SCAN");
+        let matches: Vec<&Value> = data
             .values()
-            .find(|value| query.clone().matches(value).unwrap_or(false));
-        result
-            .map(|value| value.clone())
-            .ok_or_else(|| Error::msg("Value not found"))
+            .filter(|v| query.matches(v).unwrap_or(false))
+            .collect();
+
+        Ok(matches)
     }
 
     pub fn find_many(
@@ -321,92 +404,27 @@ impl Database {
         query: Query,
         find_many_options: Option<FindManyOptions>,
     ) -> DbResult<Vec<Value>> {
-        let instance = self
-            .get_instance_by_entity(entity)
-            .ok_or_else(|| Error::msg("Entity not found"))?;
-        let data = instance
-            .data
-            .get(&entity.name)
-            .ok_or_else(|| Error::msg("Data not found"))?;
         let FindManyOptions { skip, limit, order } = find_many_options.unwrap_or(FindManyOptions {
             skip: None,
             limit: None,
             order: None,
         });
 
-        let mut constraints = HashMap::new();
-        collect_constraints(&query, &mut constraints);
+        // The query might have an associated query - which means we can search by the property of
+        // the joined value. But the associations don't get added until a few lines down.
+        let matches = self.search_with_indexes(entity, &query)?;
 
-        if let Some(index_store) = instance.indexes.get(&entity.name) {
-            if !constraints.is_empty() {
-                for idx in &index_store.indexes {
-                    if let Some(results) = query_with_index(idx, &constraints) {
-                        let filtered_data: Vec<Value> = results
-                            .into_iter()
-                            .filter_map(|id| {
-                                instance
-                                    .data
-                                    .get(&entity.name)
-                                    .and_then(|map| map.get(&id))
-                                    .cloned()
-                            })
-                            .collect();
+        let mut results: Vec<Value> = matches.into_iter().cloned().collect();
 
-                        return Ok(self.apply_skip_limit_order(
-                            self,
-                            &entity,
-                            &query,
-                            filtered_data,
-                            skip,
-                            limit,
-                            order,
-                        ));
-                    }
-                }
-            }
-        }
+        // Problem - Associations don't get added until here.
+        self.apply_associations_to_vec(&mut results, &query, entity);
+        self.apply_ordering(&mut results, order);
+        let paginated = self.apply_skip_limit(results, skip, limit);
 
-        // Get data
-        let data = data.values().map(|v| v.clone()).collect();
-        Ok(self.apply_skip_limit_order(self, &entity, &query, data, skip, limit, order))
+        Ok(paginated)
     }
 
-    fn apply_skip_limit_order(
-        &self,
-        db: &Database,
-        entity: &Entity,
-        query: &Query,
-        mut data: Vec<Value>,
-        skip: Option<i32>,
-        limit: Option<i32>,
-        order: Option<Vec<FindManyOrder>>,
-    ) -> Vec<Value> {
-        // Apply associations
-        let associated_entities = query.associated_entities();
-        for value in data.iter_mut() {
-            for associated_entity in associated_entities.iter() {
-                println!("ASSOCIAED ENTITIES FOUND: {associated_entity:?}");
-                let association = entity
-                    .associations
-                    .iter()
-                    .find(|a| a.entity_name == associated_entity.name);
-                if let Some(association) = association {
-                    if let Some(from_val) = value.get(&association.from) {
-                        let assoc_query = Query::eq(Key(association.to.clone()), from_val.clone());
-                        if let Ok(associated_data) =
-                            db.find_many(associated_entity, assoc_query, None)
-                        {
-                            value.as_object_mut().unwrap().insert(
-                                association.alias.to_string(),
-                                Value::Array(associated_data),
-                            );
-                        }
-                    }
-                }
-            }
-        }
-
-        // Order
+    fn apply_ordering(&self, data: &mut Vec<Value>, order: Option<Vec<FindManyOrder>>) {
         if let Some(ordering) = order {
             for FindManyOrder {
                 property,
@@ -424,17 +442,125 @@ impl Database {
                 });
             }
         }
+    }
 
-        // Filter (for extra non-indexed constraints)
-        let result = data
-            .into_iter()
-            .filter(|val| query.matches(val).unwrap_or(false))
+    fn apply_skip_limit(
+        &self,
+        data: Vec<Value>,
+        skip: Option<i32>,
+        limit: Option<i32>,
+    ) -> Vec<Value> {
+        data.into_iter()
             .skip(skip.unwrap_or(0) as usize)
             .take(limit.unwrap_or(i32::MAX) as usize)
-            .collect();
-
-        result
+            .collect()
     }
+
+    pub fn apply_associations_to_vec(
+        &self,
+        values: &mut Vec<Value>,
+        query: &Query,
+        entity: &Entity,
+    ) {
+        for value in values.iter_mut() {
+            self.apply_associations(value, query, entity);
+        }
+    }
+
+    pub fn apply_associations(&self, value: &mut Value, query: &Query, entity: &Entity) {
+        println!("APPLY ASSOCIATIONS");
+        println!("QUERY: {query:?}");
+        let associated_entities = query.associated_entities();
+        println!("ASS ENT: {associated_entities:?}");
+        for associated_entity in associated_entities.iter() {
+            println!("FOUND ASS");
+            if let Some(association) = entity
+                .associations
+                .iter()
+                .find(|a| a.entity_name == associated_entity.name)
+            {
+                println!("ONE");
+                if let Some(from_val) = value.get(&association.from) {
+                    println!("TWO");
+                    let assoc_query = Query::eq(Key(association.to.clone()), from_val.clone());
+                    println!("ASS QUERY: {assoc_query:?}");
+                    if let Ok(associated_data) =
+                        self.find_many(associated_entity, assoc_query, None)
+                    {
+                        value
+                            .as_object_mut()
+                            .unwrap()
+                            .insert(association.alias.to_string(), Value::Array(associated_data));
+                    }
+                }
+            }
+        }
+    }
+
+    // fn apply_skip_limit_order(
+    //     &self,
+    //     db: &Database,
+    //     entity: &Entity,
+    //     query: &Query,
+    //     mut data: Vec<Value>,
+    //     skip: Option<i32>,
+    //     limit: Option<i32>,
+    //     order: Option<Vec<FindManyOrder>>,
+    // ) -> Vec<Value> {
+    //     // Apply associations
+    //     let associated_entities = query.associated_entities();
+    //     for value in data.iter_mut() {
+    //         for associated_entity in associated_entities.iter() {
+    //             println!("ASSOCIAED ENTITIES FOUND: {associated_entity:?}");
+    //             let association = entity
+    //                 .associations
+    //                 .iter()
+    //                 .find(|a| a.entity_name == associated_entity.name);
+    //             if let Some(association) = association {
+    //                 if let Some(from_val) = value.get(&association.from) {
+    //                     let assoc_query = Query::eq(Key(association.to.clone()), from_val.clone());
+    //                     if let Ok(associated_data) =
+    //                         db.find_many(associated_entity, assoc_query, None)
+    //                     {
+    //                         value.as_object_mut().unwrap().insert(
+    //                             association.alias.to_string(),
+    //                             Value::Array(associated_data),
+    //                         );
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
+
+    //     // Order
+    //     if let Some(ordering) = order {
+    //         for FindManyOrder {
+    //             property,
+    //             direction,
+    //         } in ordering.iter().rev()
+    //         {
+    //             data.sort_by(|a, b| {
+    //                 let a_val = a.get(property).cloned().unwrap_or(Value::Null);
+    //                 let b_val = b.get(property).cloned().unwrap_or(Value::Null);
+    //                 let ord = compare_values(&a_val, &b_val);
+    //                 match direction {
+    //                     OrderDirection::Ascending => ord,
+    //                     OrderDirection::Descending => ord.reverse(),
+    //                 }
+    //             });
+    //         }
+    //     }
+
+    //     // Filter (for extra non-indexed constraints)
+    //     let result = data
+    //         .into_iter()
+    //         .filter(|val| query.matches(val).unwrap_or(false))
+    //         .skip(skip.unwrap_or(0) as usize)
+    //         .take(limit.unwrap_or(i32::MAX) as usize)
+    //         .collect();
+
+    //     result
+    // }
 
     pub fn delete_one(&mut self, entity: &Entity, query: Query) -> DbResult<Value> {
         let instance = self

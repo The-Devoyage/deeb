@@ -61,6 +61,7 @@ pub fn value_to_key(value: &Value) -> Option<ValueKey> {
 impl Database {
     pub fn build_index(&mut self, entity: &Entity) -> DbResult<()> {
         let mut built_indexes = Vec::<BuiltIndex>::new();
+        log::debug!("BUILD INDEX");
         let rows = self.find_many(entity, Query::All, None)?;
 
         for index_def in &entity.indexes {

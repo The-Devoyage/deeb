@@ -9,6 +9,7 @@
 ### Changed
 
 - Storage structure is changing from `HashMap<EntityName, Vec<Document>>` to `HashMap<EntityName, HashMap<PrimaryKey, Document>>` to support indexing lookups.
+- Find One will now provide associated entities.
 
 ## v0.0.12
 

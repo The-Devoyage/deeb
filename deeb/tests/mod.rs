@@ -1099,10 +1099,13 @@ async fn find_by_association() -> Result<(), Error> {
 
     let query = Query::associated(comment.clone(), Query::eq("user_comment.comment", "Hello"));
 
+    println!("FINDING NOW");
     let result = db
         .find_many::<UserWithComments>(&user, query, None, None)
         .await?
         .ok_or_else(|| Error::msg("Expected type but found none."))?;
+
+    println!("RESULT: {result:?}");
 
     // Flatten all comments from all users
     let all_comments: Vec<_> = result
@@ -1114,6 +1117,8 @@ async fn find_by_association() -> Result<(), Error> {
                 .map(|c| c.comment.clone())
         })
         .collect();
+
+    println!("ALLCOMMENTS: {all_comments:?}");
 
     // Assert that "Hello" is in the comments
     assert!(
