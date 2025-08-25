@@ -18,8 +18,10 @@ pub async fn insert_many(
     path: Path<DeebPath>,
     user: MaybeAuthUser,
 ) -> impl Responder {
+    log::debug!("INSERT MANY");
     let database = app_data.database.clone();
-    let entity = Entity::new(&path.entity_name);
+    let mut entity = Entity::new(&path.entity_name);
+    entity.add_index("_id_index", vec!["_id"], None);
 
     // If user is authenticated, add _created_by to each document
     if let Some(user) = user.0.clone() {

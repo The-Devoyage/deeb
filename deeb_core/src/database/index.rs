@@ -62,7 +62,7 @@ impl Database {
     pub fn build_index(&mut self, entity: &Entity) -> DbResult<()> {
         let mut built_indexes = Vec::<BuiltIndex>::new();
         log::debug!("BUILD INDEX");
-        let rows = self.find_many(entity, Query::All, None)?;
+        let rows = self.find_many(entity, Query::All, None).unwrap_or(vec![]);
 
         for index_def in &entity.indexes {
             let columns = &index_def.columns;

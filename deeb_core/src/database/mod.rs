@@ -309,7 +309,7 @@ impl Database {
         let data = instance
             .data
             .get(&entity.name)
-            .ok_or_else(|| Error::msg("Data not found"))?;
+            .ok_or_else(|| Error::msg("Find one failed: Data not found"))?;
 
         // Collect constraints for index use
         let mut constraints = HashMap::new();
@@ -322,9 +322,9 @@ impl Database {
                     if let Some(results) = query_with_index(idx, &constraints) {
                         for id in results {
                             if let Some(value) = data.get(&id) {
-                                if query.matches(value).unwrap_or(false) {
-                                    let mut found = value.clone();
-                                    self.apply_associations(&mut found, &query, entity);
+                                let mut found = value.clone();
+                                self.apply_associations(&mut found, &query, entity);
+                                if query.matches(&found).unwrap_or(false) {
                                     return Ok(found);
                                 }
                             }
@@ -336,9 +336,9 @@ impl Database {
 
         // 2. Fallback: linear scan
         for value in data.values() {
-            if query.matches(value).unwrap_or(false) {
-                let mut found = value.clone();
-                self.apply_associations(&mut found, &query, entity);
+            let mut found = value.clone();
+            self.apply_associations(&mut found, &query, entity);
+            if query.matches(&found).unwrap_or(false) {
                 return Ok(found);
             }
         }
@@ -357,7 +357,7 @@ impl Database {
         let data = instance
             .data
             .get(&entity.name)
-            .ok_or_else(|| Error::msg("Data not found"))?;
+            .ok_or_else(|| Error::msg("Search with indexes failed: Data not found"))?;
 
         // Gather constraints
         let mut constraints = HashMap::new();
@@ -371,14 +371,9 @@ impl Database {
                 for idx in &index_store.indexes {
                     println!("IDX: {idx:?}");
                     if let Some(results) = query_with_index(idx, &constraints) {
-                        let matches: Vec<&Value> = results
-                            .into_iter()
-                            .filter_map(|id| data.get(&id))
-                            .filter(|v| query.matches(v).unwrap_or(false))
-                            .collect();
-                        if !matches.is_empty() {
-                            return Ok(matches);
-                        }
+                        let matches: Vec<&Value> =
+                            results.into_iter().filter_map(|id| data.get(&id)).collect();
+                        return Ok(matches);
                     }
                 }
             }
@@ -390,10 +385,7 @@ impl Database {
         // have that data?!
         // but we also dont want to find every association for every record right?
         println!("FULL SCAN");
-        let matches: Vec<&Value> = data
-            .values()
-            .filter(|v| query.matches(v).unwrap_or(false))
-            .collect();
+        let matches: Vec<&Value> = data.values().collect();
 
         Ok(matches)
     }
@@ -414,10 +406,16 @@ impl Database {
         // the joined value. But the associations don't get added until a few lines down.
         let matches = self.search_with_indexes(entity, &query)?;
 
-        let mut results: Vec<Value> = matches.into_iter().cloned().collect();
+        let mut results: Vec<Value> = matches
+            .into_iter()
+            .cloned()
+            .map(|mut v| {
+                self.apply_associations(&mut v, &query, entity);
+                v
+            })
+            .filter(|v| query.matches(v).unwrap_or(false))
+            .collect();
 
-        // Problem - Associations don't get added until here.
-        self.apply_associations_to_vec(&mut results, &query, entity);
         self.apply_ordering(&mut results, order);
         let paginated = self.apply_skip_limit(results, skip, limit);
 
@@ -497,71 +495,6 @@ impl Database {
         }
     }
 
-    // fn apply_skip_limit_order(
-    //     &self,
-    //     db: &Database,
-    //     entity: &Entity,
-    //     query: &Query,
-    //     mut data: Vec<Value>,
-    //     skip: Option<i32>,
-    //     limit: Option<i32>,
-    //     order: Option<Vec<FindManyOrder>>,
-    // ) -> Vec<Value> {
-    //     // Apply associations
-    //     let associated_entities = query.associated_entities();
-    //     for value in data.iter_mut() {
-    //         for associated_entity in associated_entities.iter() {
-    //             println!("ASSOCIAED ENTITIES FOUND: {associated_entity:?}");
-    //             let association = entity
-    //                 .associations
-    //                 .iter()
-    //                 .find(|a| a.entity_name == associated_entity.name);
-    //             if let Some(association) = association {
-    //                 if let Some(from_val) = value.get(&association.from) {
-    //                     let assoc_query = Query::eq(Key(association.to.clone()), from_val.clone());
-    //                     if let Ok(associated_data) =
-    //                         db.find_many(associated_entity, assoc_query, None)
-    //                     {
-    //                         value.as_object_mut().unwrap().insert(
-    //                             association.alias.to_string(),
-    //                             Value::Array(associated_data),
-    //                         );
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     }
-
-    //     // Order
-    //     if let Some(ordering) = order {
-    //         for FindManyOrder {
-    //             property,
-    //             direction,
-    //         } in ordering.iter().rev()
-    //         {
-    //             data.sort_by(|a, b| {
-    //                 let a_val = a.get(property).cloned().unwrap_or(Value::Null);
-    //                 let b_val = b.get(property).cloned().unwrap_or(Value::Null);
-    //                 let ord = compare_values(&a_val, &b_val);
-    //                 match direction {
-    //                     OrderDirection::Ascending => ord,
-    //                     OrderDirection::Descending => ord.reverse(),
-    //                 }
-    //             });
-    //         }
-    //     }
-
-    //     // Filter (for extra non-indexed constraints)
-    //     let result = data
-    //         .into_iter()
-    //         .filter(|val| query.matches(val).unwrap_or(false))
-    //         .skip(skip.unwrap_or(0) as usize)
-    //         .take(limit.unwrap_or(i32::MAX) as usize)
-    //         .collect();
-
-    //     result
-    // }
-
     pub fn delete_one(&mut self, entity: &Entity, query: Query) -> DbResult<Value> {
         let instance = self
             .get_instance_by_entity_mut(entity)
@@ -570,7 +503,7 @@ impl Database {
         let data = instance
             .data
             .get_mut(&entity.name)
-            .ok_or_else(|| Error::msg("Data not found"))?;
+            .ok_or_else(|| Error::msg("Delete one failed: Data not found"))?;
 
         // Find the key for the matching value
         let matching_key = data
@@ -595,7 +528,7 @@ impl Database {
         let data = instance
             .data
             .get_mut(&entity.name)
-            .ok_or_else(|| Error::msg("Data not found"))?;
+            .ok_or_else(|| Error::msg("Delete many failed: Data not found"))?;
 
         // Collect matching keys
         let matching_keys: Vec<_> = data
@@ -628,7 +561,7 @@ impl Database {
         let data = instance
             .data
             .get_mut(&entity.name)
-            .ok_or_else(|| Error::msg("Data not found"))?;
+            .ok_or_else(|| Error::msg("Update one failed: Data not found"))?;
 
         // Find the matching key in the hashmap
         let matching_key = data
@@ -683,7 +616,7 @@ impl Database {
         let data = instance
             .data
             .get_mut(&entity.name)
-            .ok_or_else(|| Error::msg("Data not found"))?;
+            .ok_or_else(|| Error::msg("Update many failed: Data not found"))?;
 
         let mut updated_values = vec![];
 
@@ -765,7 +698,7 @@ impl Database {
         let data = instance
             .data
             .get_mut(&entity.name)
-            .ok_or_else(|| Error::msg("Data not found"))?;
+            .ok_or_else(|| Error::msg("Drop key failed: Data not found"))?;
         // Iterate through the entities
         for value in data.values_mut() {
             match value {
@@ -821,7 +754,7 @@ impl Database {
         let data = instance
             .data
             .get_mut(&entity.name)
-            .ok_or_else(|| Error::msg("Data not found"))?;
+            .ok_or_else(|| Error::msg("Add key failed: Data not found"))?;
         for current in data.values_mut() {
             let keys = key.split('.').collect::<Vec<&str>>();
             let mut json = json!({});

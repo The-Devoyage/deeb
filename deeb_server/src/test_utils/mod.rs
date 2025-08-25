@@ -55,6 +55,7 @@ pub async fn setup_test_app(
         .service(auth::login::login)
 }
 
+#[derive(Debug)]
 pub struct TestUserToken(pub String);
 
 pub async fn register_and_login_user<S>(app: &S) -> TestUserToken

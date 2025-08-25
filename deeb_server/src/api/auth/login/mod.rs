@@ -69,7 +69,7 @@ async fn login(app_data: web::Data<AppData>, payload: web::Json<LoginRequest>) -
         .is_ok();
 
     if !is_valid {
-        log::error!("Invalid credentials.");
+        log::warn!("Invalid credentials.");
         return Response::new(StatusCode::UNAUTHORIZED).message("Invalid credentials.");
     }
 
