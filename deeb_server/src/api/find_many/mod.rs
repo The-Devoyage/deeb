@@ -165,8 +165,6 @@ mod tests {
 
         let resp = test::call_service(&app, req).await;
 
-        println!("RESP API: {resp:?}");
-
         assert!(resp.status().is_success());
 
         let body_bytes = test::read_body(resp).await;

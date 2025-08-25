@@ -253,7 +253,6 @@ impl Query {
     /// assert_eq!(is_match, true);
     /// ```
     pub fn matches(&self, value: &Value) -> Result<bool, anyhow::Error> {
-        println!("VALUE: {value:?} - {self:?}");
         let is_match = match self {
             Self::Eq(key, query_value) => {
                 let kv = self.get_kv(value, &key.0);

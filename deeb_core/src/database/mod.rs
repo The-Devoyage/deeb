@@ -365,11 +365,8 @@ impl Database {
 
         // 1. Try indexed search first
         if let Some(index_store) = instance.indexes.get(&entity.name) {
-            println!("INDEX");
             if !constraints.is_empty() {
-                println!("CONSTRAINTS FOUND");
                 for idx in &index_store.indexes {
-                    println!("IDX: {idx:?}");
                     if let Some(results) = query_with_index(idx, &constraints) {
                         let matches: Vec<&Value> =
                             results.into_iter().filter_map(|id| data.get(&id)).collect();
@@ -384,7 +381,6 @@ impl Database {
         // anyhthing but in the example that we are searching associated entities - We don't yet
         // have that data?!
         // but we also dont want to find every association for every record right?
-        println!("FULL SCAN");
         let matches: Vec<&Value> = data.values().collect();
 
         Ok(matches)
@@ -466,22 +462,15 @@ impl Database {
     }
 
     pub fn apply_associations(&self, value: &mut Value, query: &Query, entity: &Entity) {
-        println!("APPLY ASSOCIATIONS");
-        println!("QUERY: {query:?}");
         let associated_entities = query.associated_entities();
-        println!("ASS ENT: {associated_entities:?}");
         for associated_entity in associated_entities.iter() {
-            println!("FOUND ASS");
             if let Some(association) = entity
                 .associations
                 .iter()
                 .find(|a| a.entity_name == associated_entity.name)
             {
-                println!("ONE");
                 if let Some(from_val) = value.get(&association.from) {
-                    println!("TWO");
                     let assoc_query = Query::eq(Key(association.to.clone()), from_val.clone());
-                    println!("ASS QUERY: {assoc_query:?}");
                     if let Ok(associated_data) =
                         self.find_many(associated_entity, assoc_query, None)
                     {

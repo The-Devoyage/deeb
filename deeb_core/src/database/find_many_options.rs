@@ -12,7 +12,7 @@ pub struct FindManyOrder {
     pub direction: OrderDirection,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
 pub struct FindManyOptions {
     pub skip: Option<i32>,
     pub limit: Option<i32>,
