@@ -72,7 +72,7 @@ impl Entity {
         }
         self.indexes.push(Index {
             name: name.to_string(),
-            columns: columns.iter().map(|c| c.to_string()).collect(),
+            keys: columns.iter().map(|c| c.to_string()).collect(),
             options,
         });
         Ok(self.clone())

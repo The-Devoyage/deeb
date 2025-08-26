@@ -243,8 +243,6 @@ impl Database {
 
         data.insert(primary_key_value.to_string(), insert_value.clone());
 
-        //TODO: Need to update built index with the custom indexes
-
         // Handle indexing
         self.append_indexes(entity, &[insert_value.clone()])?;
 
@@ -293,7 +291,6 @@ impl Database {
                 let primary_key_value = PrimaryKeyValue::new(insert_value, &entity.primary_key)?;
                 data.insert(primary_key_value.to_string(), insert_value.clone());
             }
-            //TODO: Need to index the custom indexes
         }
 
         // Append indexes in a separate borrow
@@ -377,10 +374,6 @@ impl Database {
         }
 
         // 2. Fallback: full scan
-        // TODO: We are falling back to early. In the event that the index query does not match
-        // anyhthing but in the example that we are searching associated entities - We don't yet
-        // have that data?!
-        // but we also dont want to find every association for every record right?
         let matches: Vec<&Value> = data.values().collect();
 
         Ok(matches)

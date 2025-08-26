@@ -107,7 +107,7 @@ pub fn query_with_index(
     let mut range_start: Option<IndexKey> = None;
     let mut range_end: Option<IndexKey> = None;
 
-    for col in &built_index.columns {
+    for col in &built_index.keys {
         if let Some(c) = constraints.get(col) {
             match c {
                 Constraint::Eq(v) => {

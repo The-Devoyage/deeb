@@ -12,7 +12,7 @@ pub type EntityID = String;
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Serialize, Deserialize)]
 pub struct Index {
     pub name: String,
-    pub columns: Vec<String>,
+    pub keys: Vec<String>,
     pub options: Option<IndexOptions>,
 }
 
@@ -39,7 +39,7 @@ pub enum ValueKey {
 
 #[derive(Debug, Clone)]
 pub struct BuiltIndex {
-    pub columns: Vec<String>,
+    pub keys: Vec<String>,
     pub map: BTreeMap<IndexKey, Vec<EntityID>>,
 }
 
@@ -59,25 +59,30 @@ pub fn value_to_key(value: &Value) -> Option<ValueKey> {
 }
 
 impl Database {
+    /// Called after entity insertion into an instance.
+    /// Selects every document and indexes by the entities indexes.
     pub fn build_index(&mut self, entity: &Entity) -> DbResult<()> {
         let mut built_indexes = Vec::<BuiltIndex>::new();
         log::debug!("BUILD INDEX");
-        let rows = self.find_many(entity, Query::All, None).unwrap_or(vec![]);
+        let documents = self.find_many(entity, Query::All, None).unwrap_or(vec![]);
 
+        // Get the defined indexes
         for index_def in &entity.indexes {
-            let columns = &index_def.columns;
-            if columns.is_empty() {
+            let keys = &index_def.keys;
+            if keys.is_empty() {
                 continue;
             }
 
             let mut map = BTreeMap::new();
 
-            for row in &rows {
+            // For each document
+            for document in &documents {
                 let mut key_parts = Vec::new();
                 let mut skip = false;
 
-                for col in columns {
-                    match row.get(col).and_then(value_to_key) {
+                // Create the value keys
+                for col in keys {
+                    match document.get(col).and_then(value_to_key) {
                         Some(part) => key_parts.push(part),
                         None => {
                             skip = true;
@@ -96,7 +101,7 @@ impl Database {
                     IndexKey::Compound(key_parts)
                 };
 
-                if let Some(_id) = row.get("_id").and_then(|v| v.as_str()) {
+                if let Some(_id) = document.get("_id").and_then(|v| v.as_str()) {
                     map.entry(key)
                         .or_insert_with(Vec::new)
                         .push(_id.to_string());
@@ -104,7 +109,7 @@ impl Database {
             }
 
             built_indexes.push(BuiltIndex {
-                columns: columns.to_vec(),
+                keys: keys.to_vec(),
                 map,
             });
         }
@@ -133,33 +138,30 @@ impl Database {
             .or_insert_with(|| IndexStore { indexes: vec![] });
 
         for index_def in &entity.indexes {
-            let columns = &index_def.columns;
-            if columns.is_empty() {
+            let keys = &index_def.keys;
+            if keys.is_empty() {
                 continue;
             }
 
             // Find matching built index or create new one
-            let built_index = index_store
-                .indexes
-                .iter_mut()
-                .find(|idx| idx.columns == *columns);
+            let built_index = index_store.indexes.iter_mut().find(|idx| idx.keys == *keys);
 
             let index_map = if let Some(existing) = built_index {
                 &mut existing.map
             } else {
                 index_store.indexes.push(BuiltIndex {
-                    columns: columns.clone(),
+                    keys: keys.clone(),
                     map: BTreeMap::new(),
                 });
                 &mut index_store.indexes.last_mut().unwrap().map
             };
 
-            for row in inserted {
+            for document in inserted {
                 let mut key_parts = Vec::new();
                 let mut skip = false;
 
-                for col in columns {
-                    match row.get(col).and_then(value_to_key) {
+                for col in keys {
+                    match document.get(col).and_then(value_to_key) {
                         Some(part) => key_parts.push(part),
                         None => {
                             skip = true;
@@ -178,7 +180,7 @@ impl Database {
                     IndexKey::Compound(key_parts)
                 };
 
-                if let Some(_id) = row.get("_id").and_then(|v| v.as_str()) {
+                if let Some(_id) = document.get("_id").and_then(|v| v.as_str()) {
                     index_map
                         .entry(key)
                         .or_insert_with(Vec::new)
