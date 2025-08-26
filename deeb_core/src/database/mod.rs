@@ -565,6 +565,8 @@ impl Database {
             .get_mut(&matching_key)
             .ok_or_else(|| Error::msg("Value not found"))?;
 
+        let old_value = value.clone();
+
         // Merge the existing value with the update
         let new_value = match value {
             Value::Object(existing_obj) => {
@@ -586,8 +588,8 @@ impl Database {
         };
 
         *value = new_value.clone();
-        
-        // TODO: Update Indexes
+
+        self.update_indexes(entity, &old_value, &new_value)?;
 
         Ok(new_value)
     }
@@ -608,9 +610,12 @@ impl Database {
             .ok_or_else(|| Error::msg("Update many failed: Data not found"))?;
 
         let mut updated_values = vec![];
+        let mut old_values = vec![];
 
         for (_key, value) in data.iter_mut() {
             if query.clone().matches(value).unwrap_or(false) {
+                old_values.push(value.clone());
+
                 let updated_value = match value {
                     Value::Object(obj) => {
                         let update_obj = match update_value.clone() {
@@ -633,6 +638,10 @@ impl Database {
                 *value = updated_value.clone();
                 updated_values.push(updated_value);
             }
+        }
+
+        for (old_value, new_value) in old_values.iter().zip(updated_values.iter()) {
+            self.update_indexes(entity, old_value, new_value)?;
         }
 
         Ok(updated_values)
