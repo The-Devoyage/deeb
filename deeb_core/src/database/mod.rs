@@ -499,6 +499,8 @@ impl Database {
             .remove(&matching_key)
             .ok_or_else(|| Error::msg("Failed to remove value"))?;
 
+        self.delete_indexes(entity, &[removed.clone()])?;
+
         Ok(removed)
     }
 
@@ -526,6 +528,8 @@ impl Database {
                 removed_values.push(val);
             }
         }
+
+        self.delete_indexes(entity, &removed_values)?;
 
         Ok(removed_values)
     }
@@ -582,6 +586,9 @@ impl Database {
         };
 
         *value = new_value.clone();
+        
+        // TODO: Update Indexes
+
         Ok(new_value)
     }
 

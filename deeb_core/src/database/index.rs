@@ -283,4 +283,72 @@ impl Database {
 
         Ok(())
     }
+
+    pub fn delete_indexes(&mut self, entity: &Entity, deleted: &[Value]) -> DbResult<()> {
+        // 1. Find the instance and index store.
+        let instance = self
+            .get_instance_by_entity_mut(entity)
+            .ok_or_else(|| Error::msg("Entity not found for indexing"))?;
+
+        let index_store = match instance.indexes.get_mut(&entity.name) {
+            Some(store) => store,
+            None => return Ok(()), // No indexes for this entity, nothing to do.
+        };
+
+        // For each deleted document
+        for document in deleted {
+            // For each index definition...
+            for index_def in &entity.indexes {
+                let keys = &index_def.keys;
+                if keys.is_empty() {
+                    continue;
+                }
+
+                // Find the corresponding built index.
+                let built_index = match index_store.indexes.iter_mut().find(|idx| &idx.keys == keys)
+                {
+                    Some(idx) => idx,
+                    None => continue, // Index doesn't exist, skip.
+                };
+
+                // Create the key for the document to be deleted.
+                let mut key_parts = Vec::new();
+                let mut skip = false;
+                for col in keys {
+                    match document.get(col).and_then(value_to_key) {
+                        Some(part) => key_parts.push(part),
+                        None => {
+                            skip = true;
+                            break;
+                        }
+                    }
+                }
+
+                if skip {
+                    continue;
+                }
+
+                let key = if key_parts.len() == 1 {
+                    IndexKey::Single(key_parts[0].clone())
+                } else {
+                    IndexKey::Compound(key_parts)
+                };
+
+                // Remove the document's ID from the index entry.
+                if let Some(ids) = built_index.map.get_mut(&key) {
+                    if let Some(id_to_delete) = document.get("_id").and_then(|v| v.as_str()) {
+                        if let Some(pos) = ids.iter().position(|id| id == id_to_delete) {
+                            ids.remove(pos);
+                        }
+                        // If the vec is empty after removal, remove the key from the map.
+                        if ids.is_empty() {
+                            built_index.map.remove(&key);
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
 }
