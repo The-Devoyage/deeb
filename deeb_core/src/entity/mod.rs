@@ -64,7 +64,7 @@ impl Entity {
     pub fn add_index(
         &mut self,
         name: &str,
-        columns: Vec<&str>,
+        keys: Vec<&str>,
         options: Option<IndexOptions>,
     ) -> Result<Self, anyhow::Error> {
         if self.indexes.iter().any(|i| i.name == name) {
@@ -72,7 +72,7 @@ impl Entity {
         }
         self.indexes.push(Index {
             name: name.to_string(),
-            keys: columns.iter().map(|c| c.to_string()).collect(),
+            keys: keys.iter().map(|c| c.to_string()).collect(),
             options,
         });
         Ok(self.clone())
