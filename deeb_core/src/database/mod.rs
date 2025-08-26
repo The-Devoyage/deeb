@@ -561,6 +561,8 @@ impl Database {
             .get_mut(&matching_key)
             .ok_or_else(|| Error::msg("Value not found"))?;
 
+        let old_value = value.clone();
+
         // Merge the existing value with the update
         let new_value = match value {
             Value::Object(existing_obj) => {
@@ -582,6 +584,9 @@ impl Database {
         };
 
         *value = new_value.clone();
+
+        self.update_indexes(entity, &old_value, &new_value)?;
+
         Ok(new_value)
     }
 
@@ -591,41 +596,57 @@ impl Database {
         query: Query,
         update_value: Value,
     ) -> DbResult<Vec<Value>> {
-        let instance = self
-            .get_instance_by_entity_mut(entity)
-            .ok_or_else(|| Error::msg("Entity not found"))?;
-
-        let data = instance
+        let matching_keys: Vec<_> = self
+            .get_instance_by_entity(entity)
+            .ok_or_else(|| Error::msg("Entity not found"))?
             .data
-            .get_mut(&entity.name)
-            .ok_or_else(|| Error::msg("Update many failed: Data not found"))?;
+            .get(&entity.name)
+            .ok_or_else(|| Error::msg("Update many failed: Data not found"))?
+            .iter()
+            .filter(|(_, value)| query.clone().matches(value).unwrap_or(false))
+            .map(|(key, _)| key.clone())
+            .collect();
 
         let mut updated_values = vec![];
 
-        for (_key, value) in data.iter_mut() {
-            if query.clone().matches(value).unwrap_or(false) {
-                let updated_value = match value {
-                    Value::Object(obj) => {
-                        let update_obj = match update_value.clone() {
-                            Value::Object(u) => u,
-                            _ => return Err(Error::msg("Update value must be a JSON object")),
-                        };
+        for key in matching_keys {
+            let instance = self
+                .get_instance_by_entity_mut(entity)
+                .ok_or_else(|| Error::msg("Entity not found"))?;
 
-                        for (k, v) in update_obj.into_iter() {
-                            if !v.is_null() {
-                                obj.insert(k, v);
-                            }
+            let data = instance
+                .data
+                .get_mut(&entity.name)
+                .ok_or_else(|| Error::msg("Update many failed: Data not found"))?;
+
+            let value = data
+                .get_mut(&key)
+                .ok_or_else(|| Error::msg("Value not found"))?;
+
+            let old_value = value.clone();
+
+            let updated_value = match value {
+                Value::Object(obj) => {
+                    let update_obj = match update_value.clone() {
+                        Value::Object(u) => u,
+                        _ => return Err(Error::msg("Update value must be a JSON object")),
+                    };
+
+                    for (k, v) in update_obj.into_iter() {
+                        if !v.is_null() {
+                            obj.insert(k, v);
                         }
-
-                        Value::Object(obj.clone()) // clone to push to return vec
                     }
-                    _ => return Err(Error::msg("Stored value must be a JSON object")),
-                };
 
-                // Mutate the value in-place
-                *value = updated_value.clone();
-                updated_values.push(updated_value);
-            }
+                    Value::Object(obj.clone()) // clone to push to return vec
+                }
+                _ => return Err(Error::msg("Stored value must be a JSON object")),
+            };
+
+            *value = updated_value.clone();
+            updated_values.push(updated_value.clone());
+
+            self.update_indexes(entity, &old_value, &updated_value)?;
         }
 
         Ok(updated_values)
