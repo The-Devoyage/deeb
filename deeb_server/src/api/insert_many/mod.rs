@@ -21,7 +21,14 @@ pub async fn insert_many(
     log::debug!("INSERT MANY");
     let database = app_data.database.clone();
     let mut entity = Entity::new(&path.entity_name);
-    entity.add_index("_id_index", vec!["_id"], None);
+    entity = match entity.add_index("_id_index", vec!["_id"], None) {
+        Ok(e) => e,
+        Err(err) => {
+            log::error!("Failed to add index: {}", err);
+            return Response::new(StatusCode::INTERNAL_SERVER_ERROR)
+                .message("Failed to configure entity.");
+        }
+    };
 
     // If user is authenticated, add _created_by to each document
     if let Some(user) = user.0.clone() {

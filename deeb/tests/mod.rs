@@ -65,8 +65,8 @@ async fn spawn_deeb(instance_name: &str) -> Result<(Deeb, Entity, Entity, Entity
     let comment = Comment::entity();
     let user_address = UserAddress::entity();
     let mut product = Product::entity();
-    product.add_index("product_compound_index", vec!["name", "count"], None);
-    product.add_index("primary_key_index", vec!["_id"], None);
+    product.add_index("product_compound_index", vec!["name", "count"], None)?;
+    product.add_index("primary_key_index", vec!["_id"], None)?;
 
     // Add instances
     db.add_instance(

@@ -1,4 +1,5 @@
 use crate::database::index::{Index, IndexOptions};
+use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Serialize, Deserialize)]
@@ -65,13 +66,16 @@ impl Entity {
         name: &str,
         columns: Vec<&str>,
         options: Option<IndexOptions>,
-    ) -> &mut Self {
+    ) -> Result<Self, anyhow::Error> {
+        if self.indexes.iter().any(|i| i.name == name) {
+            return Err(anyhow!("An index with the name '{}' already exists.", name));
+        }
         self.indexes.push(Index {
             name: name.to_string(),
             columns: columns.iter().map(|c| c.to_string()).collect(),
             options,
         });
-        self
+        Ok(self.clone())
     }
 
     pub fn associate<'a, N>(
