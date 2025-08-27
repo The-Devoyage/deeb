@@ -187,20 +187,20 @@ impl Database {
     pub fn get_instance_by_entity(&self, entity: &Entity) -> Option<&DatabaseInstance> {
         self.instances
             .values()
-            .find(|instance| instance.entities.contains(entity))
+            .find(|instance| instance.entities.iter().any(|e| e.name == entity.name))
     }
 
     pub fn get_instance_by_entity_mut(&mut self, entity: &Entity) -> Option<&mut DatabaseInstance> {
         self.instances
             .values_mut()
-            .find(|instance| instance.entities.contains(entity))
+            .find(|instance| instance.entities.iter().any(|e| e.name == entity.name))
     }
 
     pub fn get_instance_name_by_entity(&self, entity: &Entity) -> Result<InstanceName, Error> {
         let name = self
             .instances
             .iter()
-            .find(|(_, instance)| instance.entities.contains(entity))
+            .find(|(_, instance)| instance.entities.iter().any(|e| e.name == entity.name))
             .map(|(name, _)| name);
         let name = name.ok_or_else(|| Error::msg("Can't Find Entity Name"))?;
         Ok(name.clone())
@@ -236,7 +236,7 @@ impl Database {
 
         let instance = self
             .get_instance_by_entity_mut(entity)
-            .ok_or_else(|| Error::msg("Entity not found"))?;
+            .ok_or_else(|| Error::msg("Insert One: Entity not found"))?;
         let data = instance.get_or_init(&entity.name);
 
         let primary_key_value = PrimaryKeyValue::new(&insert_value, &entity.primary_key)?;
@@ -284,7 +284,7 @@ impl Database {
         {
             let instance = self
                 .get_instance_by_entity_mut(entity)
-                .ok_or_else(|| Error::msg("Entity not found"))?;
+                .ok_or_else(|| Error::msg("Insert Many: Entity not found"))?;
             let data = instance.get_or_init(&entity.name);
 
             for insert_value in &insert_values {
@@ -302,7 +302,7 @@ impl Database {
     pub fn find_one(&self, entity: &Entity, query: Query) -> DbResult<Value> {
         let instance = self
             .get_instance_by_entity(entity)
-            .ok_or_else(|| Error::msg("Entity not found"))?;
+            .ok_or_else(|| Error::msg("Find One: Entity not found"))?;
         let data = instance
             .data
             .get(&entity.name)
@@ -350,7 +350,7 @@ impl Database {
     ) -> DbResult<Vec<&'a Value>> {
         let instance = self
             .get_instance_by_entity(entity)
-            .ok_or_else(|| Error::msg("Entity not found"))?;
+            .ok_or_else(|| Error::msg("Search with Indexes: Entity not found"))?;
         let data = instance
             .data
             .get(&entity.name)
@@ -480,7 +480,7 @@ impl Database {
     pub fn delete_one(&mut self, entity: &Entity, query: Query) -> DbResult<Value> {
         let instance = self
             .get_instance_by_entity_mut(entity)
-            .ok_or_else(|| Error::msg("Entity not found"))?;
+            .ok_or_else(|| Error::msg("Delete One: Entity not found"))?;
 
         let data = instance
             .data
@@ -507,7 +507,7 @@ impl Database {
     pub fn delete_many(&mut self, entity: &Entity, query: Query) -> DbResult<Vec<Value>> {
         let instance = self
             .get_instance_by_entity_mut(entity)
-            .ok_or_else(|| Error::msg("Entity not found"))?;
+            .ok_or_else(|| Error::msg("Delete Many: Entity not found"))?;
 
         let data = instance
             .data
@@ -542,7 +542,7 @@ impl Database {
     ) -> DbResult<Value> {
         let instance = self
             .get_instance_by_entity_mut(entity)
-            .ok_or_else(|| Error::msg("Entity not found"))?;
+            .ok_or_else(|| Error::msg("Update One: Entity not found"))?;
 
         let data = instance
             .data
@@ -602,7 +602,7 @@ impl Database {
     ) -> DbResult<Vec<Value>> {
         let instance = self
             .get_instance_by_entity_mut(entity)
-            .ok_or_else(|| Error::msg("Entity not found"))?;
+            .ok_or_else(|| Error::msg("Update Many: Entity not found"))?;
 
         let data = instance
             .data
@@ -692,7 +692,7 @@ impl Database {
     pub fn drop_key(&mut self, entity: &Entity, key: &str) -> Result<(), Error> {
         let instance = self
             .get_instance_by_entity_mut(entity)
-            .ok_or_else(|| Error::msg("Entity not found"))?;
+            .ok_or_else(|| Error::msg("Drop Key: Entity not found"))?;
         let data = instance
             .data
             .get_mut(&entity.name)
@@ -748,7 +748,7 @@ impl Database {
     ) -> Result<(), Error> {
         let instance = self
             .get_instance_by_entity_mut(entity)
-            .ok_or_else(|| Error::msg("Entity not found"))?;
+            .ok_or_else(|| Error::msg("Add Key: Entity not found"))?;
         let data = instance
             .data
             .get_mut(&entity.name)
