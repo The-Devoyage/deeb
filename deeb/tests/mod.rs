@@ -1127,8 +1127,9 @@ async fn find_by_association() -> Result<(), Error> {
 
 // Indexes
 #[tokio::test]
-async fn build_index() -> Result<(), Error> {
-    let (db, _user, _comment, _ua, product) = spawn_deeb("build_index").await?;
+async fn find_one_with_compound_index() -> Result<(), Error> {
+    let (db, _user, _comment, _ua, product) =
+        spawn_deeb("find_one_with_compound_index").await?;
     let values = vec![
         Product {
             name: "keyboard".to_string(),
@@ -1148,5 +1149,46 @@ async fn build_index() -> Result<(), Error> {
     ];
     db.insert_many::<Product, Product>(&product, values, None)
         .await?;
+
+    let query = Query::And(vec![Query::eq("name", "mouse"), Query::eq("count", 5000)]);
+    let result = db.find_one::<Product>(&product, query, None).await?;
+
+    assert_eq!(
+        result,
+        Some(Product {
+            name: "mouse".to_string(),
+            description: "Computer mouse".to_string(),
+            count: 5000,
+        })
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn find_one_with_pk_index() -> Result<(), Error> {
+    let (db, _user, _comment, _ua, product) = spawn_deeb("find_one_with_pk_index").await?;
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct ProductWithId {
+        _id: String,
+        name: String,
+        description: String,
+        count: i32,
+    }
+
+    let p = Product {
+        name: "keyboard".to_string(),
+        description: "Computer keyboard".to_string(),
+        count: 2000,
+    };
+
+    let inserted_product = db.insert_one::<Product, ProductWithId>(&product, p, None).await?;
+
+    let query = Query::eq("_id", inserted_product._id.clone());
+    let found_product = db.find_one::<ProductWithId>(&product, query, None).await?;
+
+    assert_eq!(Some(inserted_product), found_product);
+
     Ok(())
 }
