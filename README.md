@@ -67,7 +67,8 @@ struct Comment {
 #[tokio::main]
 async fn main() -> Result<(), Error> {
    // Create Entities
-   let user = User::entity();
+   let mut user = User::entity();
+   user.add_index("age_index", vec!["age"], None)?;
    let comment = Comment::entity();
 
     // Set up a new Deeb instance
@@ -130,12 +131,13 @@ async fn main() -> Result<(), Error> {
 - **Schemaless**: Deeb doesn't require a predefined schema like traditional SQL or strongly-typed NoSQL databases. However, by using Rust generics, you can enforce type safety at compile time. This means Deeb stays flexible at runtime, while giving you confidence at build time.
 - **Transactions**: Perform multiple operations as a single unit — commit them all at once or roll them back if something fails.
 - **Querying**: Deeb supports querying, nested queries, and combination queries.
+- **Indexing**: Speed up query performance by creating indexes on single or multiple fields.
 
 ## Roadmap
 
 - [x] Basic CRUD Operations
 - [x] Transactions
-- [ ] Indexing
+- [x] Indexing
 - [x] Querying
 - [ ] Migrations
 - [x] Benchmarks
@@ -166,7 +168,7 @@ async fn main() -> Result<(), Error> {
 - `eq`: [Equal](database::query::Query::eq) - Find documents based on exact match.
 - `like`: [Like](database::query::Query::like) - Find documents based on like match.
 - `ne`: [Not Equal](database::query::Query::ne) - Find documents based on not equal match.
-- `gt`: [Greater Than](database::query::Query::gt) - Find documents based on greater than match.
+- `gt`: [Greater Than](database::query::Query::gt) - Find documents based on less than match.
 - `lt`: [Less Than](database::query::Query::lt) - Find documents based on less than match.
 - `gte`: [Greater Than or Equal](database::query::Query::gte) - Find documents based on greater than or equal match.
 - `lte`: [Less Than or Equal](database::query::Query::lte) - Find documents based on less than or equal match.
@@ -179,6 +181,10 @@ async fn main() -> Result<(), Error> {
 
 - `begin_transaction`: [Begin](deeb::Deeb::begin_transaction) a new transaction
 - `commit`: [Commit](deeb::Deeb::commit) a transaction
+
+### Indexing
+
+- `add_index`: Add an index to an entity to improve query performance.
 
 ### Data Management
 
