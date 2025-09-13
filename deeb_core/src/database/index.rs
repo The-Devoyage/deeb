@@ -18,8 +18,11 @@ pub struct Index {
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Serialize, Deserialize)]
 pub struct IndexOptions {
+    /// Not Implemented
     pub unique: bool,
+    /// Not Implemented
     pub sparse: bool,
+    /// Not Implemented
     pub case_insensitive: bool,
 }
 

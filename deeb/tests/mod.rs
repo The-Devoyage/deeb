@@ -14,7 +14,7 @@ struct Product {
 
 #[derive(Collection, Serialize, Deserialize, PartialEq, Debug)]
 #[deeb(
-    name = "comment", 
+    name = "comment",
     primary_key = "_id",
     associate = ("user", "user_id", "id"),
 )]
@@ -1128,8 +1128,7 @@ async fn find_by_association() -> Result<(), Error> {
 // Indexes
 #[tokio::test]
 async fn find_one_with_compound_index() -> Result<(), Error> {
-    let (db, _user, _comment, _ua, product) =
-        spawn_deeb("find_one_with_compound_index").await?;
+    let (db, _user, _comment, _ua, product) = spawn_deeb("find_one_with_compound_index").await?;
     let values = vec![
         Product {
             name: "keyboard".to_string(),
@@ -1183,12 +1182,263 @@ async fn find_one_with_pk_index() -> Result<(), Error> {
         count: 2000,
     };
 
-    let inserted_product = db.insert_one::<Product, ProductWithId>(&product, p, None).await?;
+    let inserted_product = db
+        .insert_one::<Product, ProductWithId>(&product, p, None)
+        .await?;
 
     let query = Query::eq("_id", inserted_product._id.clone());
     let found_product = db.find_one::<ProductWithId>(&product, query, None).await?;
 
     assert_eq!(Some(inserted_product), found_product);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_save_instance_config_default_path() -> Result<(), anyhow::Error> {
+    use serde_json::Value;
+    use std::fs;
+
+    // Clean up any existing instances.json file
+    let _ = fs::remove_file("instances.json");
+
+    let user = User::entity();
+    let comment = Comment::entity();
+
+    let db = Deeb::new();
+    db.add_instance(
+        "users",
+        "./db/test_save_config_users.json",
+        vec![user.clone()],
+    )
+    .await?;
+    db.add_instance(
+        "comments",
+        "./db/test_save_config_comments.json",
+        vec![comment.clone()],
+    )
+    .await?;
+
+    // Save configuration to default path
+    db.save_instance_config(None).await?;
+
+    // Verify file was created
+    assert!(fs::metadata("instances.json").is_ok());
+
+    // Read and verify content
+    let content = fs::read_to_string("instances.json")?;
+    let config: Value = serde_json::from_str(&content)?;
+
+    // Verify structure
+    assert!(config.is_object());
+    let config_obj = config.as_object().unwrap();
+
+    // Should have both instances
+    assert!(config_obj.contains_key("users"));
+    assert!(config_obj.contains_key("comments"));
+
+    // Verify users instance
+    let users_instance = &config_obj["users"];
+    assert!(users_instance.is_object());
+    assert!(users_instance["entities"].is_array());
+
+    let user_entities = users_instance["entities"].as_array().unwrap();
+    assert_eq!(user_entities.len(), 1);
+    assert_eq!(user_entities[0]["name"], "user");
+
+    // Verify comments instance
+    let comments_instance = &config_obj["comments"];
+    assert!(comments_instance.is_object());
+    assert!(comments_instance["entities"].is_array());
+
+    let comment_entities = comments_instance["entities"].as_array().unwrap();
+    assert_eq!(comment_entities.len(), 1);
+    assert_eq!(comment_entities[0]["name"], "comment");
+
+    // Clean up
+    let _ = fs::remove_file("instances.json");
+    let _ = fs::remove_file("./db/test_save_config_users.json");
+    let _ = fs::remove_file("./db/test_save_config_comments.json");
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_save_instance_config_custom_path() -> Result<(), anyhow::Error> {
+    use serde_json::Value;
+    use std::fs;
+
+    let custom_path = "./db/custom_config.json";
+    let _ = fs::remove_file(custom_path);
+
+    let user = User::entity();
+
+    let db = Deeb::new();
+    db.add_instance(
+        "test_instance",
+        "./db/test_save_custom_path.json",
+        vec![user.clone()],
+    )
+    .await?;
+
+    // Save configuration to custom path
+    db.save_instance_config(Some(custom_path)).await?;
+
+    // Verify file was created at custom path
+    assert!(fs::metadata(custom_path).is_ok());
+
+    // Read and verify content
+    let content = fs::read_to_string(custom_path)?;
+    let config: Value = serde_json::from_str(&content)?;
+
+    // Verify structure
+    assert!(config.is_object());
+    let config_obj = config.as_object().unwrap();
+    assert!(config_obj.contains_key("test_instance"));
+
+    let instance = &config_obj["test_instance"];
+    assert!(instance["entities"].is_array());
+    let entities = instance["entities"].as_array().unwrap();
+    assert_eq!(entities.len(), 1);
+    assert_eq!(entities[0]["name"], "user");
+
+    // Clean up
+    let _ = fs::remove_file(custom_path);
+    let _ = fs::remove_file("./db/test_save_custom_path.json");
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_save_instance_config_with_associations_and_indexes() -> Result<(), anyhow::Error> {
+    use serde_json::Value;
+    use std::fs;
+
+    let config_path = "./db/config_with_features.json";
+    let _ = fs::remove_file(config_path);
+
+    // Create entities with associations and indexes
+    let mut user = User::entity();
+    user.add_index("age_index", vec!["age"], None)?;
+    user.add_index("name_age_index", vec!["name", "age"], None)?;
+
+    let comment = Comment::entity();
+
+    let db = Deeb::new();
+    db.add_instance(
+        "main",
+        "./db/test_features.json",
+        vec![user.clone(), comment.clone()],
+    )
+    .await?;
+
+    // Save configuration
+    db.save_instance_config(Some(config_path)).await?;
+
+    // Read and verify content
+    let content = fs::read_to_string(config_path)?;
+    let config: Value = serde_json::from_str(&content)?;
+
+    let config_obj = config.as_object().unwrap();
+    let main_instance = &config_obj["main"];
+    let entities = main_instance["entities"].as_array().unwrap();
+
+    // Find user entity in the array
+    let user_entity = entities
+        .iter()
+        .find(|e| e["name"] == "user")
+        .expect("User entity should exist");
+
+    // Verify indexes are saved
+    assert!(user_entity["indexes"].is_array());
+    let indexes = user_entity["indexes"].as_array().unwrap();
+    assert_eq!(indexes.len(), 2);
+
+    // Verify primary key is saved
+    assert_eq!(user_entity["primary_key"], "id");
+
+    // Clean up
+    let _ = fs::remove_file(config_path);
+    let _ = fs::remove_file("./db/test_features.json");
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_save_instance_config_empty_database() -> Result<(), anyhow::Error> {
+    use serde_json::Value;
+    use std::fs;
+
+    let config_path = "./db/empty_config.json";
+    let _ = fs::remove_file(config_path);
+
+    let db = Deeb::new();
+
+    // Save configuration with no instances
+    db.save_instance_config(Some(config_path)).await?;
+
+    // Verify file was created
+    assert!(fs::metadata(config_path).is_ok());
+
+    // Read and verify content
+    let content = fs::read_to_string(config_path)?;
+    let config: Value = serde_json::from_str(&content)?;
+
+    // Should be empty object
+    assert!(config.is_object());
+    let config_obj = config.as_object().unwrap();
+    assert!(config_obj.is_empty());
+
+    // Clean up
+    let _ = fs::remove_file(config_path);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_save_instance_config_excludes_data() -> Result<(), anyhow::Error> {
+    use std::fs;
+
+    let config_path = "./db/no_data_config.json";
+    let _ = fs::remove_file(config_path);
+
+    let user = User::entity();
+
+    let db = Deeb::new();
+    db.add_instance("users", "./db/test_no_data.json", vec![user.clone()])
+        .await?;
+
+    // Insert some data
+    User::insert_one(
+        &db,
+        User {
+            id: 1,
+            name: "Test User".to_string(),
+            age: 25.0,
+        },
+        None,
+    )
+    .await?;
+
+    // Save configuration
+    db.save_instance_config(Some(config_path)).await?;
+
+    // Read and verify content
+    let content = fs::read_to_string(config_path)?;
+
+    // Verify no data is included in config
+    let config_str = content.to_lowercase();
+    println!("CONFIG STR: {}", config_str);
+    assert!(!config_str.contains("test user"));
+    assert!(!config_str.contains("data"));
+
+    // But should contain entity configuration
+    assert!(config_str.contains("entities"));
+    assert!(config_str.contains("user"));
+
+    // Clean up
+    let _ = fs::remove_file(config_path);
+    let _ = fs::remove_file("./db/test_no_data.json");
 
     Ok(())
 }

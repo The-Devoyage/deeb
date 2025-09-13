@@ -13,6 +13,7 @@ use std::io::{Read, Write};
 use std::path::PathBuf;
 use ulid::Ulid;
 
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 
 use crate::entity::{Entity, EntityName};
@@ -99,6 +100,11 @@ fn compare_values(a: &Value, b: &Value) -> std::cmp::Ordering {
         (Value::Bool(a), Value::Bool(b)) => a.cmp(b),
         _ => std::cmp::Ordering::Equal, // fallback for Null, Object, Array, etc.
     }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct InstanceConfig {
+    entities: Vec<Entity>,
 }
 
 /// A database that stores multiple instances of data.
@@ -779,6 +785,32 @@ impl Database {
                 .unwrap()
                 .insert(key.to_string(), default_value.clone());
         }
+        Ok(())
+    }
+
+    /// Save entity configurations to instances.json file
+    pub fn save_instance_config(&self, file_path: Option<&str>) -> Result<(), Error> {
+        let path = file_path.unwrap_or("instances.json");
+
+        // Create a map of instance names to their entity configurations
+        let config_map: HashMap<String, InstanceConfig> = self
+            .instances
+            .iter()
+            .map(|(name, instance)| {
+                (
+                    name.to_string(),
+                    InstanceConfig {
+                        entities: instance.entities.clone(),
+                    },
+                )
+            })
+            .collect();
+
+        // Serialize and write to file
+        let json = serde_json::to_string_pretty(&config_map)?;
+        std::fs::write(path, json)?;
+
+        info!("Instance configurations saved to {}", path);
         Ok(())
     }
 }

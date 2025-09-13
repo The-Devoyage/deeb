@@ -870,4 +870,32 @@ impl Deeb {
         db.commit(vec![name])?;
         Ok(())
     }
+
+    /// Save entity configurations to a JSON file for later use with Deeb Server.
+    /// This exports the instance schema without data or indexes, making it portable
+    /// between environments.
+    ///
+    /// ```
+    /// # use deeb::*;
+    /// # use anyhow::Error;
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Error> {
+    /// # let user = Entity::new("user");
+    /// # let db = Deeb::new();
+    /// # db.add_instance("test", "./db/lib_user_save_config.json", vec![user.clone()]).await?;
+    /// // Save to default "instances.json"
+    /// db.save_instance_config(None).await?;
+    ///
+    /// // Save to custom path
+    /// db.save_instance_config(Some("./db/lib_my_schema.json")).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[allow(dead_code)]
+    pub async fn save_instance_config(&self, file_path: Option<&str>) -> Result<(), Error> {
+        debug!("Saving instance configuration");
+        let db = self.db.read().await;
+        db.save_instance_config(file_path)?;
+        Ok(())
+    }
 }
