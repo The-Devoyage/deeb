@@ -9,6 +9,7 @@ pub mod find_many;
 pub mod find_one;
 pub mod insert_many;
 pub mod insert_one;
+pub mod subscribe;
 pub mod update_many;
 pub mod update_one;
 

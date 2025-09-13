@@ -3,7 +3,7 @@ use std::str::FromStr;
 use actix_web::{App, HttpServer, web::Data};
 use api::{
     auth as auth_api, delete_many, delete_one, find_many, find_one, insert_many, insert_one,
-    update_many, update_one,
+    subscribe::subscribe, update_many, update_one,
 };
 use app_data::AppData;
 use clap::Parser;
@@ -59,6 +59,7 @@ async fn main() -> std::io::Result<()> {
                     .service(delete_many::delete_many)
                     .service(update_one::update_one)
                     .service(update_many::update_many)
+                    .service(subscribe)
                     .service(auth_api::me::me)
                     .service(auth_api::register::register_user)
                     .service(auth_api::login::login)
