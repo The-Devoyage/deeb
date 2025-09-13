@@ -1,6 +1,6 @@
 # Deeb Server
 
-A web server on top of Deeb DB with User Auth and Access Control. 
+A web server on top of Deeb DB with User Auth and Access Control.
 
 Use with caution, undergoing active development!
 
@@ -10,6 +10,63 @@ Use with caution, undergoing active development!
 
 ```bash
 cargo install deeb-server
+```
+
+2. Configure Instances
+
+Instances are how deeb organizes data. Create an `instances.json` file providing the instance name, entities, assocciations, and indexes.
+
+If using `deeb-server`, as a companion to the deeb client, you can use the `save_instance_config` function within the client to automate the export of the configuration. See the Deeb Readme for more.
+
+```json
+{
+  "instance_name": {
+    "entities": [
+      {
+        "name": "user",
+        "primary_key": "id",
+        "associations": [
+          {
+            "entity_name": "comment",
+            "from": "id",
+            "to": "user_id",
+            "alias": "user_comment"
+          }
+        ],
+        "indexes": [
+          {
+            "name": "age_index",
+            "keys": [
+              "age"
+            ],
+            "options": null
+          },
+          {
+            "name": "name_age_index",
+            "keys": [
+              "name",
+              "age"
+            ],
+            "options": null
+          }
+        ]
+      },
+      {
+        "name": "comment",
+        "primary_key": "_id",
+        "associations": [
+          {
+            "entity_name": "user",
+            "from": "user_id",
+            "to": "id",
+            "alias": "user"
+          }
+        ],
+        "indexes": []
+      }
+    ]
+  }
+}
 ```
 
 2. Init Rules & Edit Rules
@@ -35,8 +92,8 @@ deeb-server serve --rules ./rules.rhai
 
 ### Query your server
 
-Once your HTTP server is running, you can start to query it. Deeb functions as a NoSQL database and 
-there is no schema! This means you can just insert, find, update, and delete freely. 
+Once your HTTP server is running, you can start to query it. Deeb functions as a NoSQL database and
+there is no schema! This means you can just insert, find, update, and delete freely.
 
 **Endpoints**
 
@@ -44,7 +101,7 @@ there is no schema! This means you can just insert, find, update, and delete fre
 - All endpoints are POST requests.
 - Entity names are dynamic. Use it, and it gets created. Be sure your rules allow you to access the entity.
 - If your rules file requires authenticated users, the optional Authorization header is required. See below for rules
-docs. 
+docs.
 
 **Examples**
 
@@ -61,8 +118,8 @@ Endpoint Examples:
 Provide property `document` to insert the new document. Every document gets an auto generated `_id`, unless overridden.
 
 ```bash
-curl -X POST \ 
-    -H 'Authorization: Bearer ${TOKEN}' \ 
+curl -X POST \
+    -H 'Authorization: Bearer ${TOKEN}' \
     -H 'Content-Type: application/json' \
     -d '{ document: { "title": "Hello World", "text": "This is my first post!" } }' \
     http://localhost:8080/insert-one/post
@@ -73,33 +130,33 @@ curl -X POST \
 Provide properties `query` and optionaly `options` to fetch documents.
 
 ```bash
-curl -X POST \ 
-    -H 'Authorization: Bearer ${TOKEN}' \ 
+curl -X POST \
+    -H 'Authorization: Bearer ${TOKEN}' \
     -H 'Content-Type: application/json' \
     -d '{ "query": { "Eq": ["title", "Hello World"] }, "options": { "limit": 10 } } ' \
     http://localhost:8080/find-many/post
 ```
 
 
-3. Update One 
+3. Update One
 
 Provide properties `query` and `document` to update document.
 
 ```bash
-curl -X POST \ 
-    -H 'Authorization: Bearer ${TOKEN}' \ 
+curl -X POST \
+    -H 'Authorization: Bearer ${TOKEN}' \
     -H 'Content-Type: application/json' \
     -d '{ "query": {"Eq": ["title", "Hello World"]}, "document": {"title": "Bizz Bazz" } }' \
     http://localhost:8080/update-one/post
 ```
 
-3. Delete One 
+3. Delete One
 
 Provide property `query` to delete document.
 
 ```bash
-curl -X POST \ 
-    -H 'Authorization: Bearer ${TOKEN}' \ 
+curl -X POST \
+    -H 'Authorization: Bearer ${TOKEN}' \
     -H 'Content-Type: application/json' \
     -d '{ "query": {"Eq": ["title", "Bizz Bazz"] }' \
     http://localhost:8080/update-one/post
@@ -113,7 +170,7 @@ authentication is supported.
 1. Register a User
 
 ```bash
-curl -X POST \ 
+curl -X POST \
     -H 'Content-Type: application/json' \
     -d '{ "email": "user@domain.com", "password": "super_secret_password", "name": "John Doe" }' \
     http://localhost:8080/auth/register
@@ -126,7 +183,7 @@ Returns JWT Token
 Create a `.env` file in the same directory with the variable `JWT_SECRET` populated to sign the token.
 
 ```bash
-curl -X POST \ 
+curl -X POST \
     -H 'Content-Type: application/json' \
     -d '{ "email": "user@domain.com", "password": "super_secret_password" }' \
     http://localhost:8080/auth/login
@@ -135,9 +192,9 @@ curl -X POST \
 2. Fetch Authorized User
 
 ```bash
-curl -X POST \ 
+curl -X POST \
     -H 'Content-Type: application/json' \
-    -H 'Authorization: Bearer ${TOKEN}' \ 
+    -H 'Authorization: Bearer ${TOKEN}' \
     -d '{ "email": "user@domain.com", "password": "super_secret_password" }' \
     http://localhost:8080/auth/me
 ```

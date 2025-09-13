@@ -27,24 +27,6 @@ pub async fn delete_many(
     let database = app_data.database.clone();
     let entity = Entity::new(&path.entity_name);
 
-    // Create Instance
-    match database
-        .deeb
-        .add_instance(
-            format!("{}-{}", &path.entity_name, app_data.instance_name.as_str()).as_str(),
-            &format!("./db/{}.json", app_data.instance_name),
-            vec![entity.clone()],
-        )
-        .await
-    {
-        Ok(_) => {}
-        Err(err) => {
-            log::error!("{:?}", err);
-            return Response::new(StatusCode::INTERNAL_SERVER_ERROR)
-                .message("Failed to get instance.");
-        }
-    };
-
     let applied_query = match app_data.rules_worker.get_query(
         &AccessOperation::DeleteMany,
         &path.entity_name,

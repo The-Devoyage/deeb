@@ -1,5 +1,12 @@
 # Deeb Changelog
 
+## v0.0.14
+
+### Added
+
+- Support saving instance config/schema from deeb core and deeb crates.
+- Support loading instance fonfig for deeb server crate.
+
 ## v0.0.13
 
 ### Added
@@ -66,7 +73,7 @@
 
 - FS Warning Resolved
 
-## v0.0.4 
+## v0.0.4
 
 ### Added
 

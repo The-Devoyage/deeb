@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
-pub struct InstanceName(String);
+pub struct InstanceName(pub String);
 
 impl From<&str> for InstanceName {
     fn from(s: &str) -> Self {

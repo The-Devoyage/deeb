@@ -188,5 +188,9 @@ async fn main() -> Result<(), Error> {
 
 ### Data Management
 
-- `add_key` : [Add a new key](deeb::Deeb::add_key) to every document in a collection 
+- `add_key` : [Add a new key](deeb::Deeb::add_key) to every document in a collection
 - `drop_key` : [Drop a key](deeb::Deeb::drop_key) from every document in a collection
+
+### Exporting Instance Configuration
+
+- `save_instance_config`: [Save](deeb::Deeb::save_instance_config) the instance configuration to a file.

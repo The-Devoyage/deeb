@@ -37,7 +37,9 @@ pub async fn setup_test_app(
     let app_data = AppData::new(
         Some("./example-rules.rhai".to_string()),
         instance_name.map(|s| s.to_string()),
+        None,
     )
+    .await
     .expect("Failed to load app data");
 
     App::new()

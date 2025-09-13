@@ -32,24 +32,6 @@ pub async fn insert_one(
         }
     }
 
-    // Create Instance
-    match database
-        .deeb
-        .add_instance(
-            format!("{}-{}", &path.entity_name, app_data.instance_name.as_str()).as_str(),
-            &format!("./db/{}.json", app_data.instance_name),
-            vec![entity.clone()],
-        )
-        .await
-    {
-        Ok(_) => {}
-        Err(err) => {
-            log::error!("{:?}", err);
-            return Response::new(StatusCode::INTERNAL_SERVER_ERROR)
-                .message("Failed to get instance.");
-        }
-    };
-
     let allowed = app_data.rules_worker.check_rules(
         &AccessOperation::InsertOne,
         &path.entity_name,
@@ -58,7 +40,8 @@ pub async fn insert_one(
     );
 
     if allowed.is_err() {
-        return Response::new(StatusCode::INTERNAL_SERVER_ERROR).message("Failed to check insert rules.");
+        return Response::new(StatusCode::INTERNAL_SERVER_ERROR)
+            .message("Failed to check insert rules.");
     }
 
     if !allowed.unwrap() {

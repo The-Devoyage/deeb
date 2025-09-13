@@ -32,5 +32,9 @@ pub enum Command {
         /// The name of the instance/json file to save data to.
         #[arg(long, default_value = "data")]
         instance_name: Option<String>,
+
+        /// Optional file path to load instance schemas
+        #[arg(long, default_value = "instances.json")]
+        schema_path: Option<String>,
     },
 }

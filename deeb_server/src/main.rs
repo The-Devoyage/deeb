@@ -42,8 +42,9 @@ async fn main() -> std::io::Result<()> {
             port,
             rules,
             instance_name,
+            schema_path,
         } => {
-            let app_data = AppData::new(rules, instance_name)?;
+            let app_data = AppData::new(rules, instance_name, schema_path).await?;
 
             log::info!("Deeb Server Starting...");
 
