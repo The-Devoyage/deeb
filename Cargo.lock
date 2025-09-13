@@ -581,7 +581,7 @@ dependencies = [
 
 [[package]]
 name = "deeb"
-version = "0.0.12"
+version = "0.0.13"
 dependencies = [
  "anyhow",
  "chrono",
@@ -598,7 +598,7 @@ dependencies = [
 
 [[package]]
 name = "deeb-server"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "actix-http",
  "actix-web",
@@ -621,7 +621,7 @@ dependencies = [
 
 [[package]]
 name = "deeb_core"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "anyhow",
  "chrono",
@@ -634,7 +634,7 @@ dependencies = [
 
 [[package]]
 name = "deeb_macros"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "anyhow",
  "deeb_core",
