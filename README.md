@@ -1,192 +1,148 @@
-# Deeb - JSON Database
+# Deeb - JSON Database Ecosystem
 
-Call it “Deeb,” “D-b,” or “That Cool JSON Thing”—this ACID Compliant database
-is perfect for tiny sites and rapid experiments.
+Call it "Deeb," "D-b," or "That Cool JSON Thing"—this is a complete JSON database ecosystem perfect for tiny sites, rapid experiments, and lightweight applications.
 
-Inspired by flexibility of Mongo and light weight of SqLite, Deeb is a tool
-that turns a set of JSON files into a light weight database.
+Inspired by the flexibility of MongoDB and the lightweight nature of SQLite, Deeb transforms JSON files into a powerful, ACID-compliant database system with both embedded and server-based solutions.
 
-Deeb's ability to turn groups JSON files into a database allows you to simply
-open a json file and edit as needed.
+## 🚀 Quick Overview
 
-The new Deeb Docs site is available now at www.deebkit.com << Check it out
+Deeb is more than just a database—it's a complete ecosystem consisting of four specialized crates that work together to provide a flexible, lightweight data storage solution including Deeb(Client), Deeb Server, Deeb Core, and Deeb Macros(macro support).
 
--- or --
+## 📦 Crates Overview
 
-Check out the quick start below, or the [docs](https://docs.rs/deeb/latest/deeb/)
-to learn more.
+### 🎯 **Deeb** - Core Database Library
+The main embedded database library that turns JSON files into a lightweight, ACID-compliant database.
 
-## Quick Start
+**Perfect for:**
+- Embedded applications
+- Rapid prototyping
+- Small to medium-sized datasets
+- Applications requiring human-readable data storage
 
-1. Add Deeb to your `Cargo.toml` file
+[📖 **Full Deeb Documentation & Quick Start →**](./deeb/README.md)
+
+### 🌐 **Deeb Server** - HTTP API Server
+A complete web server built on top of Deeb with authentication, access control, and RESTful APIs.
+
+**Perfect for:**
+- Web applications
+- API backends
+- Multi-user applications
+- Remote database access
+
+**Key Features:**
+- Built-in user authentication (JWT-based)
+- Flexible access control rules using Rhai scripting
+- RESTful API endpoints
+- Dynamic entity creation
+- Applied queries for row-level security
+
+**Quick Start:**
+```bash
+# Install
+cargo install deeb-server
+
+# Initialize rules
+deeb-server init-rules
+
+# Run server
+deeb-server serve --rules ./rules.rhai
+```
+
+[📖 **Deeb Server Documentation →**](./deeb_server/README.md)
+
+### ⚙️ **Deeb Core** - Database Engine
+The foundational library containing the core database operations, transaction management, and storage engine.
+
+**Provides:**
+- ACID transaction support
+- File-based storage with locking
+- Query processing engine
+- Index management
+- Data persistence layer
+
+### 🔧 **Deeb Macros** - Procedural Macros
+Compile-time macros that provide the ergonomic `#[derive(Collection)]` interface and associated functionality.
+
+**Enables:**
+- Automatic collection trait implementation
+- Type-safe database operations
+- Compile-time entity validation
+- Streamlined API usage
+
+## 🎯 Choose Your Path
+
+### For Embedded Applications
+Use **Deeb** directly in your Rust applications:
 
 ```bash
 cargo add deeb
 ```
 
-2. Optionally, Create a JSON file for your database. Deeb will also create one for you if it does not exist.
-
-```bash
-echo '{"user": []}' > user.json
-echo '{"comment": []}' > comment.json
-```
-
-**Terminology**
-- Instance: A single .json file managed by Deeb. Each instance can store multiple entities and serves as a lightweight, self-contained database.
-- Collection: Similar to a table (SQL) or collection (MongoDB), an array of entity documents of a consistent type within an instance.
-- Entity: The `type` of document within a collection, for example User or Comment.
-- Document: An individual record representing an entity. Documents are stored as JSON objects and represent a single unit of data (e.g., a user, message, or task).
-
-3. Create a deeb instance and perform operations.
-
 ```rust
 use deeb::*;
-use serde_json::json;
 use serde::{Serialize, Deserialize};
-use anyhow::Error;
 
 #[derive(Collection, Serialize, Deserialize)]
-#[deeb(
-    name = "user",
-    primary_key = "id",
-    associate = ("comment", "id", "user_id", "user_comment"),
-    )]
+#[deeb(name = "user", primary_key = "id")]
 struct User {
     id: i32,
     name: String,
-    age: i32
+    email: String,
 }
 
-#[derive(Collection, Serialize, Deserialize)]
-#[deeb(name = "comment", primary_key = "id")]
-struct Comment {
-    user_id: i32,
-    comment: String
-}
-
-#[tokio::main]
-async fn main() -> Result<(), Error> {
-   // Create Entities
-   let mut user = User::entity();
-   user.add_index("age_index", vec!["age"], None)?;
-   let comment = Comment::entity();
-
-    // Set up a new Deeb instance
-   let db = Deeb::new();
-   db.add_instance("test", "./user.json", vec![user.clone()])
-    .await?;
-   db.add_instance("test2", "./comment.json", vec![comment.clone()])
-    .await?;
-
-   // Single Operations
-   User::insert_one(&db, User {id: 1, name: "George".to_string(), age: 10}, None).await?;
-   User::find_one(&db, Query::eq("name", "George"), None).await?;
-
-   // Perform a transaction
-   let mut transaction = db.begin_transaction().await;
-
-   User::insert_one(&db, User {id: 1, name: "Steve".to_string(), age: 3}, Some(&mut transaction)).await?;
-   User::insert_one(&db, User {id: 2, name: "Johnny".to_string(), age: 3}, Some(&mut transaction)).await?;
-   Comment::insert_many(
-          &db,
-          vec![
-              Comment {
-                  user_id: 1,
-                  comment: "Hello".to_string(),
-              },
-              Comment {
-                  user_id: 1,
-                  comment: "Hi".to_string(),
-              },
-          ],
-          Some(&mut transaction),
-      )
-      .await?;
-
-   // Update the database
-   // Define a struct to make updates consistent.
-   #[derive(Serialize)]
-    struct UpdateUser {
-        name: Option<String>,
-        age: Option<i32>
-    }
-   let query = Query::eq("name", "Steve");
-   let update = UpdateUser { age: Some(5), name: None };
-   User::update_one(&db, query, update, Some(&mut transaction)).await?;
-
-   // Delete from the database
-   let query = Query::eq("name", "Johnny");
-   User::delete_one(&db, query, Some(&mut transaction)).await?;
-
-   db.commit(&mut transaction).await?;
-
-   Ok(())
-}
+// Full example in deeb/README.md
 ```
 
-## Features
+### For Web Applications
+Use **Deeb Server** for HTTP-based access:
 
-- **ACID Compliant**: Deeb is an ACID compliant database. We get close as we can for a light weight JSON based DB.
-- **JSON-Based Storage**: Deeb uses lightweight JSON files as the underlying data store, providing human-readable structure and seamless integration with any system that speaks JSON.
-- **Schemaless**: Deeb doesn't require a predefined schema like traditional SQL or strongly-typed NoSQL databases. However, by using Rust generics, you can enforce type safety at compile time. This means Deeb stays flexible at runtime, while giving you confidence at build time.
-- **Transactions**: Perform multiple operations as a single unit — commit them all at once or roll them back if something fails.
-- **Querying**: Deeb supports querying, nested queries, and combination queries.
-- **Indexing**: Speed up query performance by creating indexes on single or multiple fields.
+```bash
+# Install the server
+cargo install deeb-server
 
-## Roadmap
+# Start serving your JSON database over HTTP
+deeb-server serve --rules ./rules.rhai
+```
 
-- [x] Basic CRUD Operations
-- [x] Transactions
-- [x] Indexing
-- [x] Querying
-- [ ] Migrations
-- [x] Benchmarks
-- [x] Associations
-- [x] Documentation
-- [x] Tests
-- [x] Examples
-- [ ] Logging
-- [ ] Error Handling
-- [ ] Improve Transactions - Should return updated object instead of Option<T>
-- [x] Implement traits and proc macros to streamline usage - `User.find_many(...)`
+```bash
+# Insert data via HTTP
+curl -X POST \
+  -H 'Content-Type: application/json' \
+  -d '{"document": {"name": "John", "email": "john@example.com"}}' \
+  http://localhost:8080/insert-one/user
+```
 
+## ✨ Key Features
 
-## Deeb
+- **🔒 ACID Compliant**: Full transaction support with rollback capabilities
+- **📄 JSON-Based**: Human-readable storage that's easy to inspect and modify
+- **🚀 Schemaless**: No predefined schema required—adapt on the fly
+- **🔍 Advanced Querying**: Complex queries with nested conditions
+- **📊 Indexing**: Speed up queries with single and multi-field indexes
+- **🔐 Authentication**: Built-in user management (Deeb Server)
+- **🛡️ Access Control**: Flexible rule-based security (Deeb Server)
+- **⚡ Lightweight**: Minimal dependencies and fast performance
 
-### Operations
+## 🛠️ Development Status
 
-- `insert`: [Insert](deeb::Deeb::insert) a new document into the database
-- `find_one`: [Find](deeb::Deeb::find_one) a single document in the database
-- `find_many`: [Find multiple](deeb::Deeb::find_many) documents in the database
-- `update_one`: [Update a single](deeb::Deeb::update_one) document in the database
-- `update_many`: [Update multiple](deeb::Deeb::update_many) documents in the database
-- `delete_one`: [Delete a single](deeb::Deeb::delete_one) document in the database
-- `delete_many`: [Delete multiple](deeb::Deeb::delete_many) documents in the database
+Both Deeb and Deeb Server are under active development. Deeb is more mature and stable, while Deeb Server is newer and evolving rapidly.
 
-### Queries
+## 📚 Documentation
 
-- `eq`: [Equal](database::query::Query::eq) - Find documents based on exact match.
-- `like`: [Like](database::query::Query::like) - Find documents based on like match.
-- `ne`: [Not Equal](database::query::Query::ne) - Find documents based on not equal match.
-- `gt`: [Greater Than](database::query::Query::gt) - Find documents based on less than match.
-- `lt`: [Less Than](database::query::Query::lt) - Find documents based on less than match.
-- `gte`: [Greater Than or Equal](database::query::Query::gte) - Find documents based on greater than or equal match.
-- `lte`: [Less Than or Equal](database::query::Query::lte) - Find documents based on less than or equal match.
-- `and`: [And](database::query::Query::and) - Find documents based on multiple conditions.
-- `or`: [Or](database::query::Query::or) - Find documents based on multiple conditions.
-- `all`: [All](database::query::Query::all) - Return all documents.
-- `associated`: [Associated](database::query::Query::associated) - Find documents based on association.
+- **[Deeb Database →](./deeb/README.md)** - Complete guide for the embedded database
+- **[Deeb Server →](./deeb_server/README.md)** - HTTP server setup and API reference
+- **[API Documentation →](https://docs.rs/deeb/latest/deeb/)** - Rust API docs
+- **[Official Website →](https://www.deebkit.com)** - Docs, Examples, tutorials, and more
 
-### Transactions
+## 🤝 Contributing
 
-- `begin_transaction`: [Begin](deeb::Deeb::begin_transaction) a new transaction
-- `commit`: [Commit](deeb::Deeb::commit) a transaction
+We welcome contributions! Whether it's bug fixes, feature additions, or documentation improvements, please feel free to open issues and pull requests.
 
-### Indexing
+## 📄 License
 
-- `add_index`: Add an index to an entity to improve query performance.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-### Data Management
+---
 
-- `add_key` : [Add a new key](deeb::Deeb::add_key) to every document in a collection 
-- `drop_key` : [Drop a key](deeb::Deeb::drop_key) from every document in a collection
+**Ready to get started?** Check out the [Deeb Quick Start Guide](./deeb/README.md) for embedded usage or [Deeb Server Guide](./deeb_server/README.md) for web applications! Or explore [Deebkit](https://www.deebkit.com) for more information.
