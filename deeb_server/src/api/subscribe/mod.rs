@@ -3,12 +3,13 @@ use actix_web::{
     web::{Data, Payload},
 };
 use actix_ws::AggregatedMessage;
-use deeb::{Entity, FindManyOptions, Query};
+use deeb::{Entity, EntityName, FindManyOptions, Query};
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use tokio::sync::mpsc;
 
-use crate::app_data::AppData;
+use crate::{app_data::AppData, broker::Subscriber};
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(deny_unknown_fields)]
@@ -37,11 +38,46 @@ async fn subscribe(
     app_data: Data<AppData>,
 ) -> Result<HttpResponse, Error> {
     let database = app_data.database.clone();
+    let broker = app_data.broker.clone();
     let (res, mut session, stream) = actix_ws::handle(&req, stream)?;
     let mut stream = stream
         .aggregate_continuations()
         // aggregate continuation frames up to 1MiB
         .max_continuation_size(2_usize.pow(20));
+
+    // Init Subscriptions
+    let (tx, mut rx) = mpsc::channel(8);
+
+    // This task will send messages *to the client* from the mpsc receiver.
+    let mut session_clone = session.clone();
+    rt::spawn(async move {
+        while let Some(msg) = rx.recv().await {
+            let response = SubscribeResponse {
+                data: Some(msg),
+                status: SubscribeResponseStatus::Ok,
+            };
+            if session_clone
+                .text(serde_json::to_string(&response).unwrap())
+                .await
+                .is_err()
+            {
+                let error_response = SubscribeResponse {
+                    data: None,
+                    status: SubscribeResponseStatus::Error("Broker error".to_string()),
+                };
+                //TODO: Handle error response
+                match session_clone
+                    .text(serde_json::to_string(&error_response).unwrap())
+                    .await
+                {
+                    Ok(_) => (),
+                    Err(err) => {
+                        log::error!("Broker Error: {}", err);
+                    }
+                }
+            }
+        }
+    });
 
     // start task but don't wait for it
     rt::spawn(async move {
@@ -68,6 +104,18 @@ async fn subscribe(
                         }
                     };
                     let entity = Entity::new(&subscribe_options.entity_name);
+
+                    // Subscribe
+                    let subscriber = Subscriber::new(tx.clone());
+
+                    // TODO: Handle Errors
+                    broker
+                        .subscribe(
+                            &EntityName::from(subscribe_options.entity_name.as_str()),
+                            &subscribe_options.query.clone().unwrap_or(Query::All),
+                            &subscriber,
+                        )
+                        .await;
 
                     //TODO: Handle Applied Queries && Post Query Validation!!!!
 
@@ -119,6 +167,5 @@ async fn subscribe(
         }
     });
 
-    // respond immediately with response connected to WS session
     Ok(res)
 }

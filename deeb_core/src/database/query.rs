@@ -3,7 +3,7 @@ use serde_json::Value;
 
 use crate::entity::Entity;
 
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Eq, Hash)]
 pub struct Key(pub String);
 
 impl std::fmt::Display for Key {
@@ -18,7 +18,7 @@ impl From<&str> for Key {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Eq, Hash)]
 pub enum Query {
     Eq(Key, Value),
     Ne(Key, Value),

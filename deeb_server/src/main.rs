@@ -14,6 +14,7 @@ use rules::create_rules::create_rules;
 mod api;
 pub mod app_data;
 pub mod auth;
+pub mod broker;
 mod cli;
 pub mod database;
 pub mod environment;

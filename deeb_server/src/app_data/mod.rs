@@ -6,6 +6,7 @@ use deeb::Entity;
 use deeb::InstanceName;
 use serde::ser::Error;
 
+use crate::broker::Broker;
 use crate::{
     environment::Environment,
     rules::{Rules, load_rules::load_rules},
@@ -19,6 +20,7 @@ pub struct AppData {
     pub environment: Environment,
     pub rules_worker: Rules,
     pub instance_name: String,
+    pub broker: Broker,
 }
 
 struct SchemaInstances {
@@ -59,6 +61,7 @@ impl AppData {
         instance_name: Option<String>,
         schema_path: Option<String>,
     ) -> Result<Self, std::io::Error> {
+        let broker = Broker::new();
         let loaded_rules = load_rules(rules_path);
         let rules_worker = Rules::new(loaded_rules);
         let environment = Environment::new()
@@ -105,6 +108,7 @@ impl AppData {
         }
 
         Ok(AppData {
+            broker,
             environment,
             database,
             rules_worker,
