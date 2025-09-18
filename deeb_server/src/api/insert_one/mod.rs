@@ -10,7 +10,8 @@ use serde_json::Value;
 use super::Response;
 
 use crate::{
-    api::DeebPath, app_data::AppData, auth::auth_user::MaybeAuthUser, rules::AccessOperation,
+    api::DeebPath, app_data::AppData, auth::auth_user::MaybeAuthUser, broker::EventType,
+    rules::AccessOperation,
 };
 
 #[post("/insert-one/{entity_name}")]
@@ -62,7 +63,9 @@ pub async fn insert_one(
         }
     };
 
-    let _ = broker.publish(&path.entity_name, vec![value.clone()]).await;
+    let _ = broker
+        .publish(&path.entity_name, vec![value.clone()], EventType::Create)
+        .await;
 
     Response::new(StatusCode::OK)
         .data(value)

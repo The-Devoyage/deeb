@@ -1,15 +1,25 @@
 use std::{collections::HashMap, sync::Arc};
 
 use deeb::{EntityName, Query};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::sync::{Mutex, mpsc};
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum EventType {
+    Create,
+    Update,
+    Delete,
+}
 
 pub struct SenderValue {
     pub value: Value,
     pub entity_name: EntityName,
+    pub subscriber_id: SubscriberId,
+    pub event_type: EventType,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SubscriberId(ulid::Ulid);
 
 #[derive(Debug, Clone)]
@@ -82,7 +92,12 @@ impl Broker {
     }
 
     // Publish an event to all subscribers
-    pub async fn publish<T>(&self, entity_name: &T, values: Vec<Value>) -> Result<(), anyhow::Error>
+    pub async fn publish<T>(
+        &self,
+        entity_name: &T,
+        values: Vec<Value>,
+        event_type: EventType,
+    ) -> Result<(), anyhow::Error>
     where
         T: Into<EntityName> + Clone,
     {
@@ -98,6 +113,8 @@ impl Broker {
                                 let sender_value = SenderValue {
                                     entity_name: entity_name.clone().into(),
                                     value: value.clone(),
+                                    subscriber_id: subscriber.id.clone(),
+                                    event_type: event_type.clone(),
                                 };
                                 subscriber.sender.send(sender_value).await?;
                             }

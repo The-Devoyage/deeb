@@ -3,7 +3,7 @@ use actix_web::{
     web::{Data, Payload},
 };
 use actix_ws::AggregatedMessage;
-use deeb::{Entity, EntityName, FindManyOptions, Query};
+use deeb::{Entity, EntityName, Query};
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -11,21 +11,30 @@ use tokio::sync::mpsc;
 
 use crate::{
     app_data::AppData,
-    broker::{SenderValue, Subscriber},
+    broker::{EventType, SenderValue, Subscriber, SubscriberId},
 };
 
-#[derive(Serialize, Deserialize, Clone, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum SubscribeAction {
+    Subscribe,
+    Unsubscribe,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct SubscribeOptions {
+    action: SubscribeAction,
     entity_name: String,
     query: Option<Query>,
-    find_many_options: Option<FindManyOptions>,
+    subscriber_id: Option<SubscriberId>,
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub enum SubscribeResponseStatus {
     Ok,
-    Error(String),
+    Subscribed,
+    Unsubscribed,
+    Error,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -33,6 +42,9 @@ pub struct SubscribeResponse {
     status: SubscribeResponseStatus,
     entity_name: Option<String>,
     data: Option<Value>,
+    message: Option<String>,
+    subscriber_id: Option<SubscriberId>,
+    event_type: Option<EventType>,
 }
 
 #[get("/subscribe")]
@@ -59,6 +71,9 @@ async fn subscribe(
                 data: Some(msg.value),
                 status: SubscribeResponseStatus::Ok,
                 entity_name: Some(msg.entity_name.to_string()),
+                message: None,
+                subscriber_id: Some(msg.subscriber_id.clone()),
+                event_type: Some(msg.event_type.clone()),
             };
             if session_clone
                 .text(serde_json::to_string(&response).unwrap())
@@ -67,8 +82,11 @@ async fn subscribe(
             {
                 let error_response = SubscribeResponse {
                     data: None,
-                    status: SubscribeResponseStatus::Error("Broker error".to_string()),
+                    status: SubscribeResponseStatus::Error,
                     entity_name: None,
+                    message: Some("Broker error".to_string()),
+                    subscriber_id: Some(msg.subscriber_id.clone()),
+                    event_type: Some(msg.event_type.clone()),
                 };
                 //TODO: Handle error response
                 match session_clone
@@ -96,10 +114,10 @@ async fn subscribe(
                             let response = SubscribeResponse {
                                 data: None,
                                 entity_name: None,
-                                status: SubscribeResponseStatus::Error(format!(
-                                    "Error parsing JSON: {}",
-                                    err
-                                )),
+                                status: SubscribeResponseStatus::Error,
+                                message: Some(format!("Error parsing JSON: {}", err)),
+                                subscriber_id: None,
+                                event_type: None,
                             };
                             session
                                 .text(serde_json::to_string(&response).unwrap())
@@ -110,30 +128,77 @@ async fn subscribe(
                     };
                     let entity = Entity::new(&subscribe_options.entity_name);
 
-                    // Subscribe
-                    let subscriber = Subscriber::new(tx.clone());
+                    match subscribe_options.action {
+                        SubscribeAction::Subscribe => {
+                            let subscriber = Subscriber::new(tx.clone());
 
-                    // TODO: Handle Errors
-                    broker
-                        .subscribe(
-                            &EntityName::from(subscribe_options.entity_name.as_str()),
-                            &subscribe_options.query.clone().unwrap_or(Query::All),
-                            &subscriber,
-                        )
-                        .await;
+                            // TODO: Handle Errors
+                            broker
+                                .subscribe(
+                                    &EntityName::from(subscribe_options.entity_name.as_str()),
+                                    &subscribe_options.query.clone().unwrap_or(Query::All),
+                                    &subscriber,
+                                )
+                                .await;
 
-                    //TODO: Handle Applied Queries && Post Query Validation!!!!
+                            //TODO: Handle Applied Queries && Post Query Validation!!!!
 
-                    let success_response = SubscribeResponse {
-                        data: None,
-                        status: SubscribeResponseStatus::Ok,
-                        entity_name: Some(entity.name.to_string()),
-                    };
+                            let success_response = SubscribeResponse {
+                                data: None,
+                                status: SubscribeResponseStatus::Subscribed,
+                                entity_name: Some(entity.name.to_string()),
+                                message: Some(format!(
+                                    "Successfully subscribed to entity {}",
+                                    entity.name
+                                )),
+                                subscriber_id: Some(subscriber.id),
+                                event_type: None,
+                            };
 
-                    session
-                        .text(serde_json::to_string(&success_response).unwrap())
-                        .await
-                        .unwrap();
+                            session
+                                .text(serde_json::to_string(&success_response).unwrap())
+                                .await
+                                .unwrap();
+                        }
+                        SubscribeAction::Unsubscribe => {
+                            let subscriber_id = subscribe_options.subscriber_id;
+                            if subscriber_id.is_none() {
+                                let error_response = SubscribeResponse {
+                                    data: None,
+                                    status: SubscribeResponseStatus::Error,
+                                    entity_name: None,
+                                    message: Some(
+                                        "Subscriber ID is required for unsubscribe".to_string(),
+                                    ),
+                                    subscriber_id: None,
+                                    event_type: None,
+                                };
+
+                                session
+                                    .text(serde_json::to_string(&error_response).unwrap())
+                                    .await
+                                    .unwrap();
+                            }
+                            let subscriber_id = subscriber_id.unwrap();
+
+                            // TODO: Handle Errors....
+                            broker.unsubscribe(&subscriber_id).await;
+
+                            let success_response = SubscribeResponse {
+                                data: None,
+                                status: SubscribeResponseStatus::Unsubscribed,
+                                entity_name: None,
+                                message: Some("Unsubscribed successfully".to_string()),
+                                subscriber_id: Some(subscriber_id),
+                                event_type: None,
+                            };
+
+                            session
+                                .text(serde_json::to_string(&success_response).unwrap())
+                                .await
+                                .unwrap();
+                        }
+                    }
                 }
                 Ok(AggregatedMessage::Ping(msg)) => {
                     // respond to PING frame with PONG frame
