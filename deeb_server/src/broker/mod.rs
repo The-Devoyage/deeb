@@ -4,17 +4,22 @@ use deeb::{EntityName, Query};
 use serde_json::Value;
 use tokio::sync::{Mutex, mpsc};
 
+pub struct SenderValue {
+    pub value: Value,
+    pub entity_name: EntityName,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct SubscriberId(ulid::Ulid);
 
 #[derive(Debug, Clone)]
 pub struct Subscriber {
     pub id: SubscriberId,
-    pub sender: mpsc::Sender<Vec<Value>>,
+    pub sender: mpsc::Sender<SenderValue>,
 }
 
 impl Subscriber {
-    pub fn new(sender: mpsc::Sender<Vec<Value>>) -> Self {
+    pub fn new(sender: mpsc::Sender<SenderValue>) -> Self {
         let subscriber_id = ulid::Ulid::new();
         Subscriber {
             id: SubscriberId(subscriber_id),
@@ -85,16 +90,18 @@ impl Broker {
         let subscriptions = clients.keys().cloned().collect::<Vec<_>>();
         for subscription in subscriptions {
             if subscription.entity_name == entity_name.clone().into() {
-                let mut matched_values = Vec::new();
                 for value in values.iter() {
                     let should_publish = subscription.query.matches(&value)?;
                     if should_publish {
-                        matched_values.push(value.clone());
-                    }
-                }
-                if let Some(subscribers) = clients.get(&subscription) {
-                    for subscriber in subscribers {
-                        subscriber.sender.send(matched_values.clone()).await?;
+                        if let Some(subscribers) = clients.get(&subscription) {
+                            for subscriber in subscribers {
+                                let sender_value = SenderValue {
+                                    entity_name: entity_name.clone().into(),
+                                    value: value.clone(),
+                                };
+                                subscriber.sender.send(sender_value).await?;
+                            }
+                        }
                     }
                 }
             }

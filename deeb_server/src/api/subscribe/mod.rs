@@ -9,7 +9,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::sync::mpsc;
 
-use crate::{app_data::AppData, broker::Subscriber};
+use crate::{
+    app_data::AppData,
+    broker::{SenderValue, Subscriber},
+};
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(deny_unknown_fields)]
@@ -28,7 +31,8 @@ pub enum SubscribeResponseStatus {
 #[derive(Debug, Clone, Serialize)]
 pub struct SubscribeResponse {
     status: SubscribeResponseStatus,
-    data: Option<Vec<Value>>,
+    entity_name: Option<String>,
+    data: Option<Value>,
 }
 
 #[get("/subscribe")]
@@ -37,7 +41,6 @@ async fn subscribe(
     stream: Payload,
     app_data: Data<AppData>,
 ) -> Result<HttpResponse, Error> {
-    let database = app_data.database.clone();
     let broker = app_data.broker.clone();
     let (res, mut session, stream) = actix_ws::handle(&req, stream)?;
     let mut stream = stream
@@ -46,15 +49,16 @@ async fn subscribe(
         .max_continuation_size(2_usize.pow(20));
 
     // Init Subscriptions
-    let (tx, mut rx) = mpsc::channel(8);
+    let (tx, mut rx) = mpsc::channel::<SenderValue>(8);
 
     // This task will send messages *to the client* from the mpsc receiver.
     let mut session_clone = session.clone();
     rt::spawn(async move {
         while let Some(msg) = rx.recv().await {
             let response = SubscribeResponse {
-                data: Some(msg),
+                data: Some(msg.value),
                 status: SubscribeResponseStatus::Ok,
+                entity_name: Some(msg.entity_name.to_string()),
             };
             if session_clone
                 .text(serde_json::to_string(&response).unwrap())
@@ -64,6 +68,7 @@ async fn subscribe(
                 let error_response = SubscribeResponse {
                     data: None,
                     status: SubscribeResponseStatus::Error("Broker error".to_string()),
+                    entity_name: None,
                 };
                 //TODO: Handle error response
                 match session_clone
@@ -83,7 +88,6 @@ async fn subscribe(
     rt::spawn(async move {
         // receive messages from websocket
         while let Some(msg) = stream.next().await {
-            let database = database.clone();
             match msg {
                 Ok(AggregatedMessage::Text(text)) => {
                     let subscribe_options = match serde_json::from_str::<SubscribeOptions>(&text) {
@@ -91,6 +95,7 @@ async fn subscribe(
                         Err(err) => {
                             let response = SubscribeResponse {
                                 data: None,
+                                entity_name: None,
                                 status: SubscribeResponseStatus::Error(format!(
                                     "Error parsing JSON: {}",
                                     err
@@ -119,36 +124,10 @@ async fn subscribe(
 
                     //TODO: Handle Applied Queries && Post Query Validation!!!!
 
-                    let data = match database
-                        .deeb
-                        .find_many::<Value>(
-                            &entity,
-                            subscribe_options.query.unwrap_or(Query::All),
-                            subscribe_options.find_many_options,
-                            None,
-                        )
-                        .await
-                    {
-                        Ok(data) => data,
-                        Err(err) => {
-                            let response = SubscribeResponse {
-                                data: None,
-                                status: SubscribeResponseStatus::Error(format!(
-                                    "Error fetching data: {}",
-                                    err
-                                )),
-                            };
-                            session
-                                .text(serde_json::to_string(&response).unwrap())
-                                .await
-                                .unwrap();
-                            continue;
-                        }
-                    };
-
                     let success_response = SubscribeResponse {
-                        data,
+                        data: None,
                         status: SubscribeResponseStatus::Ok,
+                        entity_name: Some(entity.name.to_string()),
                     };
 
                     session
