@@ -75,4 +75,30 @@ impl Broker {
         }
         clients.retain(|_subscription, subscribers| !subscribers.is_empty());
     }
+
+    // Publish an event to all subscribers
+    pub async fn publish<T>(&self, entity_name: &T, values: Vec<Value>) -> Result<(), anyhow::Error>
+    where
+        T: Into<EntityName> + Clone,
+    {
+        let clients = self.clients.lock().await;
+        let subscriptions = clients.keys().cloned().collect::<Vec<_>>();
+        for subscription in subscriptions {
+            if subscription.entity_name == entity_name.clone().into() {
+                let mut matched_values = Vec::new();
+                for value in values.iter() {
+                    let should_publish = subscription.query.matches(&value)?;
+                    if should_publish {
+                        matched_values.push(value.clone());
+                    }
+                }
+                if let Some(subscribers) = clients.get(&subscription) {
+                    for subscriber in subscribers {
+                        subscriber.sender.send(matched_values.clone()).await?;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
 }

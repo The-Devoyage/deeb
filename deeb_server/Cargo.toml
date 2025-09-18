@@ -21,6 +21,7 @@ rhai = { version = "1.22.2", features = ["serde"] }
 thiserror = "2.0.12"
 ulid = "1.2.1"
 actix-ws = "0.3.0"
+anyhow = "1.0.86"
 tokio = { version = "1", features = ["full"] }
 
 [dev-dependencies]

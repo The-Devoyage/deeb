@@ -22,6 +22,7 @@ pub async fn insert_one(
 ) -> impl Responder {
     let database = app_data.database.clone();
     let entity = Entity::new(&path.entity_name);
+    let broker = app_data.broker.clone();
 
     if let Some(user) = user.0.clone() {
         if let Some(doc_obj) = document.as_object_mut() {
@@ -30,7 +31,7 @@ pub async fn insert_one(
                 Value::String(user._id.to_string()),
             );
         }
-    }
+    };
 
     let allowed = app_data.rules_worker.check_rules(
         &AccessOperation::InsertOne,
@@ -49,19 +50,23 @@ pub async fn insert_one(
     }
 
     // Insert Payload
-    match database
+    let value: serde_json::Value = match database
         .deeb
         .insert_one(&entity, document.into_inner(), None)
         .await
     {
-        Ok(value) => Response::new(StatusCode::OK)
-            .data(value)
-            .message("Document inserted."),
+        Ok(value) => value,
         Err(err) => {
             log::error!("{:?}", err);
-            Response::new(StatusCode::INTERNAL_SERVER_ERROR).message(&err.to_string())
+            return Response::new(StatusCode::INTERNAL_SERVER_ERROR).message(&err.to_string());
         }
-    }
+    };
+
+    let _ = broker.publish(&path.entity_name, vec![value.clone()]).await;
+
+    Response::new(StatusCode::OK)
+        .data(value)
+        .message("Document inserted.")
 }
 
 #[cfg(test)]

@@ -617,6 +617,7 @@ dependencies = [
  "actix-http",
  "actix-web",
  "actix-ws",
+ "anyhow",
  "argon2",
  "chrono",
  "clap",
