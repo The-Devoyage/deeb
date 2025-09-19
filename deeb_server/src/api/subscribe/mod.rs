@@ -97,9 +97,13 @@ async fn subscribe(
                         subscriber_id: Some(msg.subscriber_id.clone()),
                         event_type: None,
                     };
-                    session_clone
+                    match session_clone
                         .text(serde_json::to_string(&error_response).unwrap())
-                        .await;
+                        .await
+                    {
+                        Ok(_) => (),
+                        Err(err) => log::error!("Failed to send error response: {}", err),
+                    };
                     continue;
                 }
             }
@@ -145,24 +149,25 @@ async fn subscribe(
         while let Some(msg) = stream.next().await {
             match msg {
                 Ok(AggregatedMessage::Text(text)) => {
-                    let subscribe_options = match serde_json::from_str::<SubscribeOptions>(&text) {
-                        Ok(options) => options,
-                        Err(err) => {
-                            let response = SubscribeResponse {
-                                data: None,
-                                entity_name: None,
-                                status: SubscribeResponseStatus::Error,
-                                message: Some(format!("Error parsing JSON: {}", err)),
-                                subscriber_id: None,
-                                event_type: None,
-                            };
-                            session
-                                .text(serde_json::to_string(&response).unwrap())
-                                .await
-                                .unwrap();
-                            continue;
-                        }
-                    };
+                    let mut subscribe_options =
+                        match serde_json::from_str::<SubscribeOptions>(&text) {
+                            Ok(options) => options,
+                            Err(err) => {
+                                let response = SubscribeResponse {
+                                    data: None,
+                                    entity_name: None,
+                                    status: SubscribeResponseStatus::Error,
+                                    message: Some(format!("Error parsing JSON: {}", err)),
+                                    subscriber_id: None,
+                                    event_type: None,
+                                };
+                                session
+                                    .text(serde_json::to_string(&response).unwrap())
+                                    .await
+                                    .unwrap();
+                                continue;
+                            }
+                        };
                     let entity = Entity::new(&subscribe_options.entity_name);
 
                     // Handle Applied Queries
@@ -218,6 +223,9 @@ async fn subscribe(
                     } else {
                         client_query
                     };
+
+                    // Replace the query with the new one
+                    subscribe_options.query = Some(query);
 
                     match subscribe_options.action {
                         SubscribeAction::Subscribe => {
