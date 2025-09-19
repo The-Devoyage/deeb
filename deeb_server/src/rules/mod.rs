@@ -54,6 +54,7 @@ pub enum AccessOperation {
     UpdateMany,
     DeleteOne,
     DeleteMany,
+    Subscribe,
 }
 
 impl Display for AccessOperation {
@@ -67,6 +68,7 @@ impl Display for AccessOperation {
             AccessOperation::UpdateMany => write!(f, "update_many"),
             AccessOperation::DeleteOne => write!(f, "delete_one"),
             AccessOperation::DeleteMany => write!(f, "delete_many"),
+            AccessOperation::Subscribe => write!(f, "subscribe"),
         }
     }
 }
@@ -105,7 +107,9 @@ impl Rules {
             match response_rx.recv() {
                 Ok(allowed) => {
                     if !allowed.unwrap_or(false) {
-                        return Err(ScriptError::CheckRuleError("Rule check failed.".to_string()))
+                        return Err(ScriptError::CheckRuleError(
+                            "Rule check failed.".to_string(),
+                        ));
                     }
                 }
                 Err(e) => {

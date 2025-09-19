@@ -11,7 +11,9 @@ use tokio::sync::mpsc;
 
 use crate::{
     app_data::AppData,
+    auth::auth_user::MaybeAuthUser,
     broker::{EventType, SenderValue, Subscriber, SubscriberId},
+    rules::AccessOperation,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -53,6 +55,7 @@ async fn subscribe(
     req: HttpRequest,
     stream: Payload,
     app_data: Data<AppData>,
+    user: MaybeAuthUser,
 ) -> Result<HttpResponse, Error> {
     let broker = app_data.broker.clone();
     let (res, mut session, stream) = actix_ws::handle(&req, stream)?;
@@ -67,8 +70,40 @@ async fn subscribe(
 
     // This task will send messages *to the client* from the mpsc receiver.
     let mut session_clone = session.clone();
+    let app_data_clone = app_data.clone();
+    let user_clone = user.0.clone();
     rt::spawn(async move {
         while let Some(msg) = rx.recv().await {
+            // Handle Post Query Rules Validation
+            let allowed = app_data_clone.rules_worker.check_rules(
+                &AccessOperation::Subscribe,
+                &msg.entity_name.to_string(),
+                user_clone.clone(),
+                vec![msg.value.clone()],
+            );
+
+            match allowed {
+                Ok(allowed) => {
+                    if !allowed {
+                        continue;
+                    }
+                }
+                Err(err) => {
+                    let error_response = SubscribeResponse {
+                        data: None,
+                        status: SubscribeResponseStatus::Error,
+                        entity_name: Some(msg.entity_name.to_string()),
+                        message: Some(err.to_string()),
+                        subscriber_id: Some(msg.subscriber_id.clone()),
+                        event_type: None,
+                    };
+                    session_clone
+                        .text(serde_json::to_string(&error_response).unwrap())
+                        .await;
+                    continue;
+                }
+            }
+
             let response = SubscribeResponse {
                 data: Some(msg.value),
                 status: SubscribeResponseStatus::Ok,
@@ -77,6 +112,7 @@ async fn subscribe(
                 subscriber_id: Some(msg.subscriber_id.clone()),
                 event_type: Some(msg.event_type.clone()),
             };
+
             if session_clone
                 .text(serde_json::to_string(&response).unwrap())
                 .await
@@ -129,6 +165,60 @@ async fn subscribe(
                     };
                     let entity = Entity::new(&subscribe_options.entity_name);
 
+                    // Handle Applied Queries
+                    let applied_query = match app_data.rules_worker.get_query(
+                        &AccessOperation::Subscribe,
+                        &subscribe_options.entity_name,
+                        user.0.clone(),
+                        serde_json::to_value(subscribe_options.clone()).ok(),
+                    ) {
+                        Ok(q) => q,
+                        Err(err) => {
+                            let error_response = SubscribeResponse {
+                                data: None,
+                                entity_name: None,
+                                status: SubscribeResponseStatus::Error,
+                                message: Some(format!("Error parsing Applied Query: {}", err)),
+                                subscriber_id: None,
+                                event_type: None,
+                            };
+                            session
+                                .text(serde_json::to_string(&error_response).unwrap())
+                                .await
+                                .unwrap();
+                            continue;
+                        }
+                    };
+
+                    let client_query = match subscribe_options.clone().query.clone() {
+                        Some(q) => q,
+                        None => Query::All,
+                    };
+
+                    // Combine client and applied queries
+                    let query = if !applied_query.is_null() {
+                        let jsonquery = serde_json::from_value::<Query>(applied_query);
+                        if jsonquery.is_err() {
+                            let error_response = SubscribeResponse {
+                                data: None,
+                                entity_name: None,
+                                status: SubscribeResponseStatus::Error,
+                                message: Some(format!("Error retrieving Applied Query")),
+                                subscriber_id: None,
+                                event_type: None,
+                            };
+                            session
+                                .text(serde_json::to_string(&error_response).unwrap())
+                                .await
+                                .unwrap();
+
+                            continue;
+                        }
+                        Query::and(vec![client_query, jsonquery.unwrap()])
+                    } else {
+                        client_query
+                    };
+
                     match subscribe_options.action {
                         SubscribeAction::Subscribe => {
                             let subscriber = Subscriber::new(tx.clone());
@@ -139,8 +229,6 @@ async fn subscribe(
                                     &subscriber,
                                 )
                                 .await;
-
-                            //TODO: Handle Applied Queries && Post Query Validation!!!!
 
                             let success_response = SubscribeResponse {
                                 data: None,
