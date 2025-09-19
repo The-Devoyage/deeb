@@ -1,5 +1,3 @@
-use std::thread::current;
-
 use actix_web::{
     Error, HttpRequest, HttpResponse, get, rt,
     web::{Data, Payload},
