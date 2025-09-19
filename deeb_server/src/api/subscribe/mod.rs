@@ -1,3 +1,5 @@
+use std::thread::current;
+
 use actix_web::{
     Error, HttpRequest, HttpResponse, get, rt,
     web::{Data, Payload},
@@ -35,6 +37,7 @@ pub enum SubscribeResponseStatus {
     Subscribed,
     Unsubscribed,
     Error,
+    NotSubscribed,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -62,6 +65,7 @@ async fn subscribe(
 
     // Init Subscriptions
     let (tx, mut rx) = mpsc::channel::<SenderValue>(8);
+    let mut current_subscriptions = Vec::new();
 
     // This task will send messages *to the client* from the mpsc receiver.
     let mut session_clone = session.clone();
@@ -88,14 +92,13 @@ async fn subscribe(
                     subscriber_id: Some(msg.subscriber_id.clone()),
                     event_type: Some(msg.event_type.clone()),
                 };
-                //TODO: Handle error response
                 match session_clone
                     .text(serde_json::to_string(&error_response).unwrap())
                     .await
                 {
                     Ok(_) => (),
                     Err(err) => {
-                        log::error!("Broker Error: {}", err);
+                        log::error!("Fatal Broker Error: {}", err);
                     }
                 }
             }
@@ -131,8 +134,6 @@ async fn subscribe(
                     match subscribe_options.action {
                         SubscribeAction::Subscribe => {
                             let subscriber = Subscriber::new(tx.clone());
-
-                            // TODO: Handle Errors
                             broker
                                 .subscribe(
                                     &EntityName::from(subscribe_options.entity_name.as_str()),
@@ -151,9 +152,11 @@ async fn subscribe(
                                     "Successfully subscribed to entity {}",
                                     entity.name
                                 )),
-                                subscriber_id: Some(subscriber.id),
+                                subscriber_id: Some(subscriber.id.clone()),
                                 event_type: None,
                             };
+
+                            current_subscriptions.push(subscriber.id);
 
                             session
                                 .text(serde_json::to_string(&success_response).unwrap())
@@ -181,7 +184,28 @@ async fn subscribe(
                             }
                             let subscriber_id = subscriber_id.unwrap();
 
-                            // TODO: Handle Errors....
+                            // Check if user is subscribed
+                            let is_subscribed = current_subscriptions.contains(&subscriber_id);
+                            if !is_subscribed {
+                                let error_response = SubscribeResponse {
+                                    data: None,
+                                    status: SubscribeResponseStatus::NotSubscribed,
+                                    entity_name: None,
+                                    message: Some(
+                                        "Not subscribed to current Subscriber ID.".to_string(),
+                                    ),
+                                    subscriber_id: Some(subscriber_id),
+                                    event_type: None,
+                                };
+                                session
+                                    .text(serde_json::to_string(&error_response).unwrap())
+                                    .await
+                                    .unwrap();
+                                continue;
+                            }
+
+                            current_subscriptions.retain(|s| *s != subscriber_id);
+
                             broker.unsubscribe(&subscriber_id).await;
 
                             let success_response = SubscribeResponse {
@@ -201,8 +225,13 @@ async fn subscribe(
                     }
                 }
                 Ok(AggregatedMessage::Ping(msg)) => {
-                    // respond to PING frame with PONG frame
                     session.pong(&msg).await.unwrap();
+                }
+                Ok(AggregatedMessage::Close(_)) => {
+                    log::info!("Unsubscribing from: {:?}", current_subscriptions);
+                    for subscriber_id in current_subscriptions.iter() {
+                        broker.unsubscribe(&subscriber_id).await;
+                    }
                 }
                 _ => {
                     log::warn!("Unknown message type received");
